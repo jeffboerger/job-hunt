@@ -1,0 +1,21 @@
+# real resume data — contains phone/email; commit master_resume.example.yaml instead
+master_resume.yaml
+
+# generated resumes/letters and old resume files (contain contact info)
+output/
+*.docx
+*.pdf
+
+# JD scratch files and harvest outputs with personal history
+*.txt
+!requirements.txt
+harvested_bullets*.md
+
+# python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# macOS
+.DS_Store

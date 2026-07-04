@@ -1,0 +1,29 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>jobhunt — 3 matches</title><style>
+body{font-family:-apple-system,Segoe UI,sans-serif;margin:2rem;background:#f7f8fa;color:#1c2333}
+h1{font-size:1.25rem} .meta{color:#68707f;font-size:.85rem;margin-bottom:1rem}
+table{border-collapse:collapse;width:100%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+th,td{padding:.55rem .8rem;text-align:left;border-bottom:1px solid #e6e8ee;font-size:.9rem}
+th{background:#1c2333;color:#fff;cursor:pointer;user-select:none;position:sticky;top:0}
+tr:hover{background:#f0f4ff} a{color:#1a56db;text-decoration:none;font-weight:600}
+a:hover{text-decoration:underline}
+.new{background:#e8f7ee;color:#137a3d;font-size:.72rem;font-weight:700;
+     padding:.15rem .45rem;border-radius:99px;margin-left:.4rem}
+.src{color:#68707f;font-size:.78rem}</style></head><body>
+<h1>jobhunt report</h1>
+<div class="meta">3 matches · titles: data engineer, data analyst · locations: Orlando,FL,Remote · generated 2026-07-03 01:50
+ · click a header to sort</div>
+<table id="t"><thead><tr>
+<th>Posted</th><th>Title</th><th>Company</th><th>Location</th><th>Source</th>
+</tr></thead><tbody>
+<tr><td>2026-06-30</td><td><a href="https://disney.wd5.myworkdayjobs.com/x" target="_blank">Senior Data Analyst</a></td><td>disney</td><td>Lake Buena Vista, FL</td><td class="src">workday</td></tr>
+<tr><td>2026-07-02</td><td><a href="https://job-boards.greenhouse.io/reddit/jobs/1" target="_blank">Analytics Engineer</a><span class="new">NEW</span></td><td>reddit</td><td>Remote - United States</td><td class="src">greenhouse</td></tr>
+<tr><td>2026-07-03</td><td><a href="https://jobs.ashbyhq.com/supabase/1" target="_blank">Senior Data Engineer &lt;script&gt;</a><span class="new">NEW</span></td><td>supabase</td><td>Remote</td><td class="src">ashby</td></tr>
+</tbody></table>
+<script>
+document.querySelectorAll('th').forEach((th,i)=>th.onclick=()=>{
+ const tb=document.querySelector('#t tbody');
+ const rows=[...tb.rows].sort((a,b)=>a.cells[i].innerText.localeCompare(b.cells[i].innerText));
+ if(th.dataset.asc==='1'){rows.reverse();th.dataset.asc='0'}else{th.dataset.asc='1'}
+ rows.forEach(r=>tb.appendChild(r));});
+</script></body></html>

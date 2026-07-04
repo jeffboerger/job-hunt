@@ -1,0 +1,148 @@
+# Watchlist + search config. Slug help: README §5. Verify with --check-sources.
+
+greenhouse:
+- gitlab
+- datadog
+- cloudflare
+- stripe
+- coinbase
+- doordash
+- instacart
+- reddit
+- pinterest
+- discord
+- figma
+- mongodb
+- elastic
+- hashicorp
+- twilio
+- affirm
+- gusto
+- toast
+- wayfair
+- duolingo
+- asana
+- dbtlabs
+- anthropic
+- samsara
+- chime
+- squarespace
+- knowbe4
+lever:
+- palantir
+- plaid
+- zoox
+- attentive
+- voltron-data
+ashby:
+- openai
+- ramp
+- linear
+- replit
+- supabase
+workday:
+- tenant: disney
+  host: disney.wd5.myworkdayjobs.com
+  site: disneycareer
+- tenant: nvidia
+  host: nvidia.wd5.myworkdayjobs.com
+  site: NVIDIAExternalCareerSite
+- tenant: citi
+  host: citi.wd5.myworkdayjobs.com
+  site: '2'
+- tenant: raymondjames
+  host: raymondjames.wd1.myworkdayjobs.com
+  site: RaymondJamesCareers
+- tenant: jabil
+  host: jabil.wd5.myworkdayjobs.com
+  site: Jabil_Careers
+- tenant: adventhealth
+  host: adventhealth.wd12.myworkdayjobs.com
+  site: AH_External_Career_Site
+- tenant: cityoforlando
+  host: cityoforlando.wd5.myworkdayjobs.com
+  site: CityofOrlandoCareers
+search:
+  since: 2w
+  save_jds: jds
+  titles:
+  - data engineer
+  - analytics engineer
+  - etl
+  - data platform
+  - data infrastructure
+  - data warehouse
+  - bi engineer
+  - data analyst
+  - business intelligence
+  - bi analyst
+  - reporting analyst
+  - product analyst
+  locations:
+  - Orlando
+  - Tampa
+  - Lakeland
+  - Lake Buena Vista
+  - FL
+  - Remote
+  exclude_titles:
+  - staff
+  - principal
+  - director
+  - manager
+  - sr. staff
+  - vp
+  exclude_locations:
+  - canada
+  - ontario
+  - india
+  - poland
+  - spain
+  - colombia
+  - mexico
+  - brazil
+  - uk
+  - united kingdom
+  - ireland
+  - germany
+  - france
+  - netherlands
+  - europe
+  - emea
+  - apac
+  - australia
+  - singapore
+  - japan
+  - philippines
+
+# ---------------------------------------------------------------------------
+# TO VERIFY — Central Florida targets whose ATS I couldn't confirm.
+# For each: open the careers page, click one posting, read the URL,
+# then move it up into the right block (greenhouse/lever/ashby/workday).
+#
+# TAMPA BAY:
+#   FIS              — fisglobal.com/careers          (fintech hub, St. Pete)
+#   ReliaQuest       — reliaquest.com/careers         (Tampa HQ, cybersecurity)
+#   JPMorgan Chase   — careers.jpmorgan.com           (big Tampa tech ops; Oracle ATS)
+#   DTCC             — careers.dtcc.com               (Tampa)
+#   Moffitt          — moffitt.org/careers            (cancer center, data-heavy)
+#   BayCare          — baycare.org/careers
+#   Tampa General    — careers.tgh.org
+#   Bloomin' Brands  — bloominbrands.com/careers      (Outback parent, Tampa HQ)
+#   Mosaic           — mosaicco.com/careers
+#
+# ORLANDO:
+#   Universal Orlando— jobs.universalparks.com        (NBCU/Comcast family)
+#   Orlando Health   — jobs.orlandohealth.com
+#   Darden           — darden.com/careers             (Orlando HQ — Olive Garden etc.)
+#   Lockheed Martin  — lockheedmartinjobs.com         (big Orlando sims/training org)
+#   Siemens Energy   — siemens-energy.com/careers     (Orlando)
+#   Marriott Vacations— careers.marriottvacationsworldwide.com (Orlando HQ)
+#
+# LAKELAND / POLK:
+#   Publix           — jobs.publix.com                (Lakeland HQ — NOT on Workday,
+#                                                      custom portal; check manually
+#                                                      or use js_board.py)
+#   Saddle Creek Logistics — saddlecrk.com/careers    (Lakeland HQ)
+#   GEICO Lakeland   — geico.com/careers              (regional office)
+# ---------------------------------------------------------------------------
