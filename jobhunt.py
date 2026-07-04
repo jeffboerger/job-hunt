@@ -285,6 +285,9 @@ DEFAULT_BOOST = ["junior", "jr", "entry level", "entry-level", "associate",
 
 def is_boosted(title: str, boost_terms: list) -> bool:
     t = title.lower()
+    # senior/lead/staff prefixes veto the boost ("Senior Data Engineer I")
+    if re.search(r"\b(senior|sr\.?|staff|principal|lead)\b", t):
+        return False
     if any(_word_hit(b.lower(), t) for b in boost_terms or []):
         return True
     # 'Data Engineer I' / 'Data Engineer 1' (level-one roles)
@@ -318,6 +321,98 @@ def mark_and_flag_new(jobs: list[Job]) -> set[str]:
 
 
 
+
+def fetch_careercircle(cfg: dict) -> list:
+    """CareerCircle (Allegis staffing board). Server-rendered HTML search:
+    /jobs?keyword=X&location=state~FL~Florida State~lat~lng&page=N
+    Requires beautifulsoup4. Config:
+      careercircle:
+        locations:
+          - "state~FL~Florida State~27.543598~-81.82069"
+          - "MetroArea~Greater Orlando~Greater Orlando~28.538336~-81.379234"
+        keywords: [data engineer, data analyst]
+        pages: 2
+    """
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        print("  ! careercircle source needs: pip install beautifulsoup4")
+        return []
+    jobs, seen_ids = [], set()
+    # accept a list of location tuples (repeated params, UI caps at 10)
+    # or a single string for backward compat
+    locs = cfg.get("locations") or cfg.get("location", "")
+    if isinstance(locs, str):
+        locs = [locs] if locs else []
+    for kw in cfg.get("keywords", []):
+        for page in range(1, cfg.get("pages", 2) + 1):
+            params = {"keyword": kw, "location": locs}
+            if page > 1:
+                params["page"] = page
+            try:
+                r = requests.get("https://www.careercircle.com/jobs",
+                                 params=params, headers=UA, timeout=TIMEOUT)
+                r.raise_for_status()
+            except Exception as e:
+                print(f"  ! careercircle '{kw}' p{page}: {e}")
+                break
+            soup = BeautifulSoup(r.text, "html.parser")
+            anchors = soup.select('a[href*="/jobs/all/"]')
+            found_this_page = 0
+            for a in anchors:
+                m = re.search(r"/jobs/all/all/usa/([a-z-]+)/([a-z-]+)/([0-9a-f-]{36})",
+                              a.get("href", ""))
+                if not m or m.group(3) in seen_ids:
+                    continue
+                title = a.get_text(" ", strip=True)
+                if not title:
+                    continue
+                # walk up to the card container (the ancestor mentioning Posted)
+                card = a
+                for _ in range(6):
+                    if card.parent is None:
+                        break
+                    card = card.parent
+                    if "Posted" in card.get_text():
+                        break
+                text = card.get_text("\n", strip=True)
+                comp = ""
+                lines = [l.strip() for l in text.split("\n") if l.strip()]
+                if title in lines:
+                    i = lines.index(title)
+                    if i + 1 < len(lines):
+                        comp = lines[i + 1].split("\u2022")[0].strip()
+                locm = re.search(r"([A-Za-z .'-]+,\s*[A-Z]{2})", text)
+                posted = ""
+                pm = re.search(r"Posted\s+(\d+)\s+days?\s+ago", text)
+                if pm:
+                    posted = (datetime.now() - timedelta(days=int(pm.group(1)))).strftime("%Y-%m-%d")
+                elif re.search(r"Posted\s+(yesterday)", text):
+                    posted = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+                elif re.search(r"Posted\s+today", text):
+                    posted = datetime.now().strftime("%Y-%m-%d")
+                seen_ids.add(m.group(3))
+                found_this_page += 1
+                jobs.append(Job(
+                    source="careercircle",
+                    company=comp or "careercircle",
+                    title=title,
+                    location=locm.group(1) if locm else m.group(2).replace("-", " ").title(),
+                    url=f"https://www.careercircle.com/jobs/all/all/usa/{m.group(1)}/{m.group(2)}/{m.group(3)}",
+                    posted=posted,
+                    raw={"id": m.group(3)},
+                ))
+            if found_this_page == 0:
+                if "jobs found" in r.text and page == 1:
+                    Path("careercircle_debug.html").write_text(r.text)
+                    print("  ! careercircle: results present but parser found 0 cards — "
+                          "markup may have changed; saved careercircle_debug.html")
+                break   # no results or last page
+            time.sleep(0.8)
+    print(f"[careercircle] {len(jobs)} postings across {len(cfg.get('keywords', []))} keyword(s)")
+    return jobs
+
+
 # --------------------------------------------------------------------------- #
 #  JD saving — write descriptions of NEW matching postings to a folder,
 #  building a dated corpus of the current target market (feeds jd_harvest.py)
@@ -328,7 +423,7 @@ import html as _html
 
 def strip_html(raw: str) -> str:
     """HTML -> plain text, no extra deps. Good enough for keyword mining."""
-    text = _html.unescape(raw or "")
+    text = _html.unescape(_html.unescape(raw or ""))  # Greenhouse double-escapes
     text = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", text, flags=re.S | re.I)
     text = re.sub(r"<br\s*/?>|</p>|</li>|</div>|</h[1-6]>", "\n", text, flags=re.I)
     text = re.sub(r"<[^>]+>", " ", text)
@@ -351,6 +446,10 @@ def fetch_description(job: Job) -> str:
                     or strip_html(job.raw.get("descriptionHtml", "")))
         if job.source == "remotive":
             return strip_html(job.raw.get("description", ""))
+        if job.source == "careercircle":
+            r = requests.get(job.url, headers=UA, timeout=TIMEOUT)
+            r.raise_for_status()
+            return strip_html(r.text)
         if job.source == "adzuna":
             return strip_html(job.raw.get("description", ""))  # truncated by API
         if job.source == "greenhouse":
@@ -389,13 +488,13 @@ def save_jds(jobs: list, new_uids: set, outdir: Path) -> int:
     month_dir.mkdir(parents=True, exist_ok=True)
     saved = 0
     for j in new_jobs:
-        text = fetch_description(j)
-        if len(text) < 200:          # too short to be a usable JD
-            continue
         slug = re.sub(r"[^A-Za-z0-9]+", "-", f"{j.company}-{j.title}").strip("-")[:80]
         tag = hashlib.md5(j.uid.encode()).hexdigest()[:6]
         path = month_dir / f"{slug}-{tag}.txt"
         if path.exists():
+            continue                 # already saved — skip BEFORE fetching
+        text = fetch_description(j)
+        if len(text) < 200:          # too short to be a usable JD
             continue
         header = (f"TITLE: {j.title}\nCOMPANY: {j.company}\nLOCATION: {j.location}\n"
                   f"SOURCE: {j.source}\nPOSTED: {j.posted}\nURL: {j.url}\n"
@@ -450,6 +549,8 @@ def collect(args, cfg) -> list[Job]:
                 grab(f"workday/{entry['tenant']}:{t[:18]}", fetch_workday, entry, t)
     if on("remotive"):
         grab("remotive", fetch_remotive, args.title)
+    if on("careercircle") and cfg.get("careercircle"):
+        grab("careercircle", fetch_careercircle, cfg["careercircle"])
     if on("adzuna") and cfg.get("adzuna"):
         where = args.adzuna_where or (args.locations.split(",")[0] if args.locations else "")
         if where:
