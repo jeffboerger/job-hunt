@@ -3,14 +3,16 @@
 **A personal job-search aggregator that skips the scraping.** Instead of
 fighting bot-protected career pages, it hits the JSON APIs that power them:
 
-| Source | Endpoint |
-|---|---|
-| Greenhouse | `boards-api.greenhouse.io` (public, no auth) |
-| Lever | `api.lever.co/v0/postings` (public, no auth) |
-| Ashby | `api.ashbyhq.com/posting-api` (public, no auth) |
-| Workday | the hidden `/wday/cxs/` JSON endpoint behind every myworkdayjobs.com site |
-| Remotive | remote-jobs API |
-| Adzuna | aggregator with true city+radius geo filtering (free API key) |
+| Source | Endpoint | Auth |
+|---|---|---|
+| Greenhouse | `boards-api.greenhouse.io` | none |
+| Lever | `api.lever.co/v0/postings` | none |
+| Ashby | `api.ashbyhq.com/posting-api` | none |
+| Workday | the hidden `/wday/cxs/` JSON endpoint behind every myworkdayjobs.com site | none |
+| USAJobs | `data.usajobs.gov/api/search` — federal postings with GS-grade band and public-hiring-path filtering; full JD in the payload | free key |
+| CareerCircle | server-rendered search pages, HTML-parsed (staffing/recruiter-backed postings) | none |
+| Adzuna | aggregator with true city+radius geo filtering, multi-query × multi-metro | free app id+key |
+| Remotive | remote-jobs API | none |
 
 One run sweeps a configurable watchlist of companies, filters by title and
 location, flags what's new since the last run, and writes a sortable HTML
@@ -39,8 +41,15 @@ search.
   Workday's fuzzy "Posted 30+ Days Ago" is normalized to real dates.
 - **JD corpus building** — with `save_jds` enabled, the full description of
   every new matching posting is saved to a dated folder. Free for
-  Lever/Ashby/Remotive (already in the API payload); one polite detail fetch
-  for Greenhouse/Workday. Feeds downstream keyword-frequency analysis.
+  Lever/Ashby/Remotive/USAJobs (already in the API payload); one polite
+  detail fetch for Greenhouse/Workday/CareerCircle. Feeds downstream
+  keyword-frequency analysis.
+- **Federal-aware** — USAJobs source filters to the public hiring path (no
+  internal-only "area of consideration" postings) and a configurable GS
+  grade band; the title filter understands federal conventions ("IT
+  Specialist", "Operations Research Analyst").
+- **Secrets stay out of git** — API credentials load from a gitignored
+  `.env` (built-in loader, no dependency); config files carry no keys.
 - **Outputs** — console summary, sortable `jobs.html`, optional CSV.
 - **`--check-sources`** — verifies every configured company slug responds.
 - **Playwright fallback** (`js_board.py`) for the rare board with no JSON
@@ -51,11 +60,19 @@ search.
 ```bash
 git clone https://github.com/jeffboerger/job-hunt && cd job-hunt
 python3 -m venv venv && source venv/bin/activate
-pip install requests pyyaml
+pip install requests pyyaml beautifulsoup4
+
+# credentialed sources (both optional, both free):
+cat > .env << 'DONE'
+USAJOBS_API_KEY="key-from-developer.usajobs.gov"
+ADZUNA_APP_ID=id-from-developer.adzuna.com
+ADZUNA_APP_KEY=key-from-developer.adzuna.com
+DONE
+echo ".env" >> .gitignore
 
 # edit companies.yaml: your watchlist + search block
-python jobhunt.py                          # everything matching, all time
-python jobhunt.py --new-only --since 3d    # the daily driver
+python jobhunt.py                          # everything matching
+python jobhunt.py --new-only               # the daily driver
 open jobs.html
 ```
 
@@ -69,10 +86,25 @@ workday:
   - tenant: disney
     host: disney.wd5.myworkdayjobs.com
     site: disneycareer
+usajobs:
+  email: you@example.com          # your API registration email
+  keywords: [data engineer, data analyst]
+  pay_grade_low: 7                # GS band = federal seniority filter
+  pay_grade_high: 12
+  locations: [Orlando, Florida, Houston, Texas]
+  days: 30
+adzuna:
+  distance_km: 40                 # credentials come from .env
+  queries: [data engineer, data analyst]
+  wheres: [Orlando, FL, Houston, TX]
+careercircle:
+  locations: ["state~FL~Florida State~27.54~-81.82"]   # tuples from their site's URL
+  keywords: [data engineer]
+  pages: 2
 search:
   since: 2w              # default posting-age window
   save_jds: jds          # save new postings' descriptions here
-  titles: [data engineer, analytics engineer, data analyst]
+  titles: [data engineer, analytics engineer, data analyst, it specialist]
   locations: [Orlando, Tampa, FL, Remote]
   exclude_titles: [staff, principal, director, senior]
   exclude_locations: [canada, india, emea]

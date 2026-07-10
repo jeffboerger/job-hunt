@@ -173,10 +173,32 @@ def fetch_remotive(search_text: str) -> list[Job]:
     return jobs
 
 
+
+def load_dotenv(path: str = ".env") -> None:
+    """Load KEY=VALUE lines from a local .env into os.environ (existing
+    env vars win). Keeps secrets out of committed config files."""
+    import os
+    p = Path(path)
+    if not p.exists():
+        return
+    for line in p.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        k, v = k.strip(), v.strip().strip("'\"")
+        if k and k not in os.environ:
+            os.environ[k] = v
+
+
 def fetch_adzuna(search_text: str, where: str, cfg: dict) -> list[Job]:
     """Aggregator with real geo-filtering. Free key: developer.adzuna.com"""
-    app_id, app_key = cfg.get("app_id"), cfg.get("app_key")
+    import os
+    app_id = cfg.get("app_id") or os.environ.get("ADZUNA_APP_ID", "")
+    app_key = cfg.get("app_key") or os.environ.get("ADZUNA_APP_KEY", "")
     if not app_id or not app_key:
+        print("  ! adzuna: needs app_id + app_key (config or ADZUNA_APP_ID/"
+              "ADZUNA_APP_KEY in .env) — free at developer.adzuna.com")
         return []
     jobs = []
     for page in (1, 2):
@@ -184,6 +206,7 @@ def fetch_adzuna(search_text: str, where: str, cfg: dict) -> list[Job]:
                f"?app_id={app_id}&app_key={app_key}"
                f"&what={quote(search_text)}&where={quote(where)}"
                f"&distance={cfg.get('distance_km', 40)}&results_per_page=50"
+               f"&max_days_old={cfg.get('max_days_old', 21)}"
                f"&content-type=application/json")
         r = requests.get(url, headers=UA, timeout=TIMEOUT)
         r.raise_for_status()
@@ -322,6 +345,71 @@ def mark_and_flag_new(jobs: list[Job]) -> set[str]:
 
 
 
+
+def fetch_usajobs(cfg: dict) -> list:
+    """USAJobs.gov official REST API (free key: developer.usajobs.gov).
+    Full JD text arrives in the search payload — no detail fetches needed.
+    Config:
+      usajobs:
+        email: you@example.com          # used as User-Agent per their API rules
+        api_key: XXXX                   # or set env var USAJOBS_API_KEY
+        keywords: [data engineer, data analyst]
+        locations: [Orlando Florida, Houston Texas, Austin Texas]
+        days: 30                        # only postings from the last N days
+    """
+    import os
+    key = cfg.get("api_key") or os.environ.get("USAJOBS_API_KEY", "")
+    email = cfg.get("email") or os.environ.get("USAJOBS_EMAIL", "")
+    if not key or not email:
+        print("  ! usajobs: needs email + api_key (or USAJOBS_API_KEY env var) — "
+              "free signup at developer.usajobs.gov")
+        return []
+    headers = {"Host": "data.usajobs.gov", "User-Agent": email,
+               "Authorization-Key": key}
+    jobs, seen_ids = [], set()
+    loc_param = ";".join(cfg.get("locations", []))
+    for kw in cfg.get("keywords", []):
+        params = {"Keyword": kw, "ResultsPerPage": 250,
+                  # only postings you're actually eligible for — internal-only
+                  # "area of consideration" announcements never reach the report
+                  "HiringPath": cfg.get("hiring_path", "public")}
+        if loc_param:
+            params["LocationName"] = loc_param
+        if cfg.get("days"):
+            params["DatePosted"] = cfg["days"]
+        # GS-grade band: federal seniority lives in pay grade, not title words
+        if cfg.get("pay_grade_low"):
+            params["PayGradeLow"] = str(cfg["pay_grade_low"]).zfill(2)
+        if cfg.get("pay_grade_high"):
+            params["PayGradeHigh"] = str(cfg["pay_grade_high"]).zfill(2)
+        try:
+            r = requests.get("https://data.usajobs.gov/api/search",
+                             headers=headers, params=params, timeout=TIMEOUT)
+            r.raise_for_status()
+            items = r.json().get("SearchResult", {}).get("SearchResultItems", [])
+        except Exception as e:
+            print(f"  ! usajobs '{kw}': {e}")
+            continue
+        for item in items:
+            jid = item.get("MatchedObjectId", "")
+            if not jid or jid in seen_ids:
+                continue
+            d = item.get("MatchedObjectDescriptor", {})
+            seen_ids.add(jid)
+            jobs.append(Job(
+                source="usajobs",
+                company=d.get("OrganizationName", "usajobs"),
+                title=d.get("PositionTitle", ""),
+                location=d.get("PositionLocationDisplay", ""),
+                url=d.get("PositionURI", ""),
+                posted=(d.get("PublicationStartDate", "") or "")[:10],
+                raw=d,
+            ))
+        time.sleep(0.5)
+    print(f"[usajobs] {len(jobs)} postings across {len(cfg.get('keywords', []))} keyword(s)")
+    return jobs
+
+
 def fetch_careercircle(cfg: dict) -> list:
     """CareerCircle (Allegis staffing board). Server-rendered HTML search:
     /jobs?keyword=X&location=state~FL~Florida State~lat~lng&page=N
@@ -446,12 +534,24 @@ def fetch_description(job: Job) -> str:
                     or strip_html(job.raw.get("descriptionHtml", "")))
         if job.source == "remotive":
             return strip_html(job.raw.get("description", ""))
+        if job.source == "usajobs":
+            det = (job.raw.get("UserArea", {}) or {}).get("Details", {}) or {}
+            duties = det.get("MajorDuties", [])
+            if isinstance(duties, str):
+                duties = [duties]
+            parts = [det.get("JobSummary", ""), "\n".join(duties),
+                     det.get("QualificationSummary", "")]
+            return "\n\n".join(p for p in parts if p)
         if job.source == "careercircle":
             r = requests.get(job.url, headers=UA, timeout=TIMEOUT)
             r.raise_for_status()
             return strip_html(r.text)
         if job.source == "adzuna":
-            return strip_html(job.raw.get("description", ""))  # truncated by API
+            # Snippet-only by design: adzuna.com details pages bot-block
+            # automated fetches, so chasing the full JD mostly fails and
+            # occasionally saves challenge-page junk. The truncated snippet
+            # still carries real keyword signal for the corpus.
+            return strip_html(job.raw.get("description", ""))
         if job.source == "greenhouse":
             jid = job.raw.get("id")
             if not jid:
@@ -501,7 +601,7 @@ def save_jds(jobs: list, new_uids: set, outdir: Path) -> int:
                   f"SAVED: {datetime.now().strftime('%Y-%m-%d')}\n\n")
         path.write_text(header + text, encoding="utf-8")
         saved += 1
-        if j.source in ("greenhouse", "workday"):
+        if j.source in ("greenhouse", "workday", "adzuna", "careercircle"):
             time.sleep(0.5)          # be polite on detail fetches
     return saved
 
@@ -528,7 +628,7 @@ def collect(args, cfg) -> list[Job]:
             all_jobs.extend(got)
             print(f"  [{label:<28}] {len(got):>4} postings")
         except requests.HTTPError as e:
-            print(f"  [{label:<28}]  HTTP {e.response.status_code} — check the slug")
+            print(f"  [{label:<28}]  auth or slug problem (401/403 = credentials, 404 = bad slug)")
         except Exception as e:
             print(f"  [{label:<28}]  error: {e}")
         time.sleep(0.4)
@@ -549,12 +649,18 @@ def collect(args, cfg) -> list[Job]:
                 grab(f"workday/{entry['tenant']}:{t[:18]}", fetch_workday, entry, t)
     if on("remotive"):
         grab("remotive", fetch_remotive, args.title)
+    if on("usajobs") and cfg.get("usajobs"):
+        grab("usajobs", fetch_usajobs, cfg["usajobs"])
     if on("careercircle") and cfg.get("careercircle"):
         grab("careercircle", fetch_careercircle, cfg["careercircle"])
     if on("adzuna") and cfg.get("adzuna"):
-        where = args.adzuna_where or (args.locations.split(",")[0] if args.locations else "")
-        if where:
-            grab(f"adzuna/{where}", fetch_adzuna, args.title, where, cfg["adzuna"])
+        az = cfg["adzuna"]
+        queries = az.get("queries") or ([args.title] if args.title else [])
+        wheres = az.get("wheres") or ([args.adzuna_where] if args.adzuna_where
+                  else (args.locations.split(",")[:1] if args.locations else []))
+        for q in queries:
+            for w in wheres:
+                grab(f"adzuna/{w}", fetch_adzuna, q, w, az)
     return all_jobs
 
 
@@ -569,10 +675,24 @@ tr:hover{{background:#f0f4ff}} a{{color:#1a56db;text-decoration:none;font-weight
 a:hover{{text-decoration:underline}}
 .new{{background:#e8f7ee;color:#137a3d;font-size:.72rem;font-weight:700;
      padding:.15rem .45rem;border-radius:99px;margin-left:.4rem}}
-.src{{color:#68707f;font-size:.78rem}}</style></head><body>
+.src{{color:#68707f;font-size:.78rem}}
+.bar{{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin:.8rem 0}}
+.bar input[type=text],.bar select{{padding:.4rem .6rem;border:1px solid #ccd2dd;
+  border-radius:6px;font-size:.85rem;background:#fff}}
+.bar label{{font-size:.82rem;color:#454d5e;display:flex;gap:.3rem;align-items:center}}
+#shown{{margin-left:auto;font-size:.82rem;color:#68707f}}</style></head><body>
 <h1>jobhunt report</h1>
 <div class="meta">{count} matches · titles: {titles} · locations: {locs} · generated {ts}
  · click a header to sort</div>
+<div class="bar">
+<input type="text" id="fSearch" placeholder="search anything…">
+<select id="fCompany"><option value="">All companies</option></select>
+<select id="fLoc"><option value="">All locations</option></select>
+<select id="fSrc"><option value="">All sources</option></select>
+<label><input type="checkbox" id="fJr"> JR-friendly only</label>
+<label><input type="checkbox" id="fNew"> NEW only</label>
+<span id="shown"></span>
+</div>
 <table id="t"><thead><tr>
 <th>Posted</th><th>Title</th><th>Company</th><th>Location</th><th>Source</th>
 </tr></thead><tbody>
@@ -584,6 +704,41 @@ document.querySelectorAll('th').forEach((th,i)=>th.onclick=()=>{{
  const rows=[...tb.rows].sort((a,b)=>a.cells[i].innerText.localeCompare(b.cells[i].innerText));
  if(th.dataset.asc==='1'){{rows.reverse();th.dataset.asc='0'}}else{{th.dataset.asc='1'}}
  rows.forEach(r=>tb.appendChild(r));}});
+
+const tb=document.querySelector('#t tbody');
+const allRows=[...tb.rows];
+function fill(sel,col){{
+ const vals=[...new Set(allRows.map(r=>r.cells[col].innerText.trim()))].sort();
+ vals.forEach(v=>{{const o=document.createElement('option');o.value=v;o.textContent=v;
+  document.querySelector(sel).appendChild(o);}});
+}}
+fill('#fCompany',2); fill('#fLoc',3); fill('#fSrc',4);
+function apply(){{
+ const q=document.querySelector('#fSearch').value.toLowerCase();
+ const co=document.querySelector('#fCompany').value;
+ const lo=document.querySelector('#fLoc').value;
+ const sr=document.querySelector('#fSrc').value;
+ const jr=document.querySelector('#fJr').checked;
+ const nw=document.querySelector('#fNew').checked;
+ let n=0;
+ allRows.forEach(r=>{{
+  let ok=true;
+  if(q && !r.innerText.toLowerCase().includes(q)) ok=false;
+  if(co && r.cells[2].innerText.trim()!==co) ok=false;
+  if(lo && r.cells[3].innerText.trim()!==lo) ok=false;
+  if(sr && r.cells[4].innerText.trim()!==sr) ok=false;
+  if(jr && !r.cells[1].innerHTML.includes('JR-FRIENDLY')) ok=false;
+  if(nw && !r.cells[1].innerHTML.includes('>NEW<')) ok=false;
+  r.style.display=ok?'':'none';
+  if(ok) n++;
+ }});
+ document.querySelector('#shown').textContent=n+' shown';
+}}
+['fSearch','fCompany','fLoc','fSrc','fJr','fNew'].forEach(id=>{{
+ const el=document.getElementById(id);
+ el.addEventListener(el.tagName==='INPUT'&&el.type==='text'?'input':'change',apply);
+}});
+apply();
 </script></body></html>"""
 
 
@@ -608,6 +763,7 @@ def write_html(path, jobs, new_uids, titles, locations):
 
 
 def main():
+    load_dotenv()
     p = argparse.ArgumentParser(description="Personal job-search aggregator")
     p.add_argument("--title", required=False, default="",
                    help='Single title query. Terms ANDed; OR with |, e.g. "data|analytics engineer"')

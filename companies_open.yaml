@@ -72,13 +72,10 @@ careercircle:
   - data engineer
   - data analyst
   - business intelligence
-  - software engineer
-  - python developer
-  - machine learning
   pages: 2
 search:
+  since: 2w
   save_jds: jds
-  since: 4w          # wide net looks back further than the daily 2w
   titles:
   - data engineer
   - analytics engineer
@@ -87,28 +84,11 @@ search:
   - data infrastructure
   - data warehouse
   - bi engineer
-  - dataops
   - data analyst
   - business intelligence
   - bi analyst
   - reporting analyst
   - product analyst
-  - insights analyst
-  - tableau developer
-  - power bi
-  - sql developer
-  - software engineer
-  - backend
-  - full stack
-  - python developer
-  - python engineer
-  - platform engineer
-  - data scientist
-  - machine learning
-  - ml engineer
-  - mlops
-  - applied scientist
-  - ai engineer
   locations:
   - Orlando
   - Tampa
@@ -116,6 +96,23 @@ search:
   - Lake Buena Vista
   - FL
   - Remote
+  - Houston
+  - TX
+  - NC
+  - WA
+  - Seattle
+  - Durham
+  - Raleigh
+  - Pittsburgh
+  - PA
+  - TN
+  - Nashville
+  - Memphis
+  - Chicago
+  - Peoria
+  - Rockford
+  - IL 
+  - IA
   exclude_titles:
   - staff
   - principal
@@ -145,6 +142,7 @@ search:
   - singapore
   - japan
   - philippines
+  - malaysia
 
 # ---------------------------------------------------------------------------
 # TO VERIFY — Central Florida targets whose ATS I couldn't confirm.
