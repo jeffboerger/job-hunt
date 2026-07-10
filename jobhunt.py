@@ -676,6 +676,10 @@ a:hover{{text-decoration:underline}}
 .new{{background:#e8f7ee;color:#137a3d;font-size:.72rem;font-weight:700;
      padding:.15rem .45rem;border-radius:99px;margin-left:.4rem}}
 .src{{color:#68707f;font-size:.78rem}}
+.fit{{font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:99px;cursor:help}}
+.fit-strong{{background:#e8f7ee;color:#137a3d}}
+.fit-maybe{{background:#fff3d6;color:#8a5a00}}
+.fit-skip{{background:#f1f2f5;color:#8a90a0}}
 .bar{{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin:.8rem 0}}
 .bar input[type=text],.bar select{{padding:.4rem .6rem;border:1px solid #ccd2dd;
   border-radius:6px;font-size:.85rem;background:#fff}}
@@ -689,12 +693,13 @@ a:hover{{text-decoration:underline}}
 <select id="fCompany"><option value="">All companies</option></select>
 <select id="fLoc"><option value="">All locations</option></select>
 <select id="fSrc"><option value="">All sources</option></select>
+<select id="fFit"><option value="">All fits</option><option>strong</option><option>maybe</option><option>skip</option><option value="—">unrated</option></select>
 <label><input type="checkbox" id="fJr"> JR-friendly only</label>
 <label><input type="checkbox" id="fNew"> NEW only</label>
 <span id="shown"></span>
 </div>
 <table id="t"><thead><tr>
-<th>Posted</th><th>Title</th><th>Company</th><th>Location</th><th>Source</th>
+<th>Posted</th><th>Title</th><th>Company</th><th>Location</th><th>Source</th><th>Fit</th>
 </tr></thead><tbody>
 {rows}
 </tbody></table>
@@ -718,6 +723,7 @@ function apply(){{
  const co=document.querySelector('#fCompany').value;
  const lo=document.querySelector('#fLoc').value;
  const sr=document.querySelector('#fSrc').value;
+ const ft=document.querySelector('#fFit').value;
  const jr=document.querySelector('#fJr').checked;
  const nw=document.querySelector('#fNew').checked;
  let n=0;
@@ -727,6 +733,7 @@ function apply(){{
   if(co && r.cells[2].innerText.trim()!==co) ok=false;
   if(lo && r.cells[3].innerText.trim()!==lo) ok=false;
   if(sr && r.cells[4].innerText.trim()!==sr) ok=false;
+  if(ft && r.cells[5].innerText.trim()!==ft) ok=false;
   if(jr && !r.cells[1].innerHTML.includes('JR-FRIENDLY')) ok=false;
   if(nw && !r.cells[1].innerHTML.includes('>NEW<')) ok=false;
   r.style.display=ok?'':'none';
@@ -734,7 +741,7 @@ function apply(){{
  }});
  document.querySelector('#shown').textContent=n+' shown';
 }}
-['fSearch','fCompany','fLoc','fSrc','fJr','fNew'].forEach(id=>{{
+['fSearch','fCompany','fLoc','fSrc','fFit','fJr','fNew'].forEach(id=>{{
  const el=document.getElementById(id);
  el.addEventListener(el.tagName==='INPUT'&&el.type==='text'?'input':'change',apply);
 }});
@@ -742,18 +749,27 @@ apply();
 </script></body></html>"""
 
 
-def write_html(path, jobs, new_uids, titles, locations):
+def write_html(path, jobs, new_uids, titles, locations, verdicts=None):
     import html as _h
+    verdicts = verdicts or {}
     rows = []
     for j in jobs:
         badge = '<span class="new">NEW</span>' if j.uid in new_uids else ""
         if getattr(j, "boosted", False):
             badge = '<span class="new" style="background:#fff3d6;color:#8a5a00">JR-FRIENDLY</span>' + badge
+        v = verdicts.get(j.uid)
+        if v:
+            tip = _h.escape(f"{v['one_liner']}  [{v['seniority_fit']} · "
+                            f"{v['remote_truth']} · ghost:{v['ghost_risk']}]", quote=True)
+            fit_cell = (f'<td><span class="fit fit-{v["fit"]}" '
+                        f'title="{tip}">{v["fit"]}</span></td>')
+        else:
+            fit_cell = '<td class="src">—</td>'
         rows.append(
             f"<tr><td>{_h.escape(j.posted or '—')}</td>"
             f'<td><a href="{_h.escape(j.url)}" target="_blank">{_h.escape(j.title)}</a>{badge}</td>'
             f"<td>{_h.escape(j.company)}</td><td>{_h.escape(j.location)}</td>"
-            f'<td class="src">{_h.escape(j.source)}</td></tr>')
+            f'<td class="src">{_h.escape(j.source)}</td>{fit_cell}</tr>')
     doc = HTML_TMPL.format(count=len(jobs), titles=_h.escape(", ".join(titles)),
                            locs=_h.escape(locations or "any"),
                            ts=datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -857,6 +873,18 @@ def main():
         if n_saved:
             print(f"\nSaved {n_saved} new JD(s) -> {jd_dir}/{datetime.now().strftime('%Y-%m')}/")
 
+    # Triage: free rules-engine verdicts for the report's Fit column.
+    # Fail-safe — a triage problem must never kill the report.
+    verdicts = {}
+    try:
+        import triage
+        n_triaged = triage.run_rules_quiet(Path(jd_dir) if jd_dir else None)
+        if n_triaged:
+            print(f"Triaged {n_triaged} new posting(s)  [engine: rules]")
+        verdicts = triage.get_verdicts([j.uid for j in deduped])
+    except Exception as e:
+        print(f"  ! triage skipped: {e}")
+
     if args.new_only:
         deduped = [j for j in deduped if j.uid in new_uids]
 
@@ -887,7 +915,7 @@ def main():
         print(f"\nWrote {len(deduped)} rows → {args.csv}")
 
     if args.html and deduped:
-        write_html(args.html, deduped, new_uids, args.title_list, args.locations)
+        write_html(args.html, deduped, new_uids, args.title_list, args.locations, verdicts)
         from pathlib import Path as _P
         print(f"\n>>> Clickable report: {_P(args.html).resolve()}")
         print(">>> Open it with:  open jobs.html")

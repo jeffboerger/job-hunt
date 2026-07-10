@@ -20,3 +20,7 @@ venv/
 # macOS
 .DS_Store
 .env
+jobs.html
+jobs_keep.html
+careercircle_debug.html
+*.sqlite3
