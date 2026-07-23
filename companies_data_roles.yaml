@@ -1,0 +1,215 @@
+# ===========================================================================
+# companies_data_roles.yaml — THE data-lane daily driver.
+# Every confirmed source + tenant (53 endpoints), location-agnostic,
+# DE / DA / DS / ML title net. This is the primary tech search.
+#
+#   python jobhunt.py --config companies_data_roles.yaml --new-only
+#
+# Companion file: companies_other.yaml — SAME company list, ops/business
+# analyst title net. It exists separately because it UN-EXCLUDES 'manager'
+# (to catch Operations Manager) while this file EXCLUDES it. Opposite filter
+# rules can't share one config. Run them as two passes.
+#
+# Adding tenants: see probes/README.md for the verify-first recipe per ATS.
+# ===========================================================================
+
+# --- startup/tech boards (Greenhouse/Lever/Ashby) -------------------------
+greenhouse:
+- gitlab
+- datadog
+- cloudflare
+- stripe
+- coinbase
+- doordashusa
+- instacart
+- reddit
+- pinterest
+- discord
+- figma
+- mongodb
+- elastic
+- twilio
+- affirm
+- gusto
+- toast
+- duolingo
+- asana
+- dbtlabsinc
+- anthropic
+- samsara
+- chime
+- squarespace
+- knowbe4
+- attentive
+- amperon
+lever:
+- palantir
+- zoox
+ashby:
+- openai
+- plaid
+- ramp
+- linear
+- replit
+- supabase
+
+# --- Workday tenants -----------------------------------------------------
+workday:
+- tenant: disney
+  host: disney.wd5.myworkdayjobs.com
+  site: 'disneycareer'
+- tenant: nvidia
+  host: nvidia.wd5.myworkdayjobs.com
+  site: 'NVIDIAExternalCareerSite'
+- tenant: citi
+  host: citi.wd5.myworkdayjobs.com
+  site: '2'
+- tenant: raymondjames
+  host: raymondjames.wd1.myworkdayjobs.com
+  site: 'RaymondJamesCareers'
+- tenant: jabil
+  host: jabil.wd5.myworkdayjobs.com
+  site: 'Jabil_Careers'
+- tenant: adventhealth
+  host: adventhealth.wd12.myworkdayjobs.com
+  site: 'AH_External_Career_Site'
+- tenant: cityoforlando
+  host: cityoforlando.wd5.myworkdayjobs.com
+  site: 'CityofOrlandoCareers'
+- tenant: reliaquest
+  host: reliaquest.wd5.myworkdayjobs.com
+  site: 'ReliaQuest_Careers'
+- tenant: shell
+  host: shell.wd3.myworkdayjobs.com
+  site: 'ShellCareers'
+- tenant: fil
+  host: fil.wd3.myworkdayjobs.com
+  site: '001'
+- tenant: fis
+  host: fis.wd5.myworkdayjobs.com
+  site: 'SearchJobs'
+
+# --- Eightfold tenants (PCSX-verified) -----------------------------------
+eightfold:
+- tenant: starbucks
+  domain: starbucks.com
+- tenant: johndeere
+  domain: johndeere.com
+- tenant: bms
+  domain: bms.com
+- tenant: micron
+  domain: micron.com
+
+# --- Radancy / TalentBrew tenants (confirmed) ----------------------------
+radancy:
+- tenant: lockheed
+  host: www.lockheedmartinjobs.com
+- tenant: schwab
+  host: www.schwabjobs.com
+- tenant: chevron
+  host: careers.chevron.com
+
+adzuna:
+  distance_km: 40
+  queries:
+  - data engineer
+  - data analyst
+  wheres:
+  - Seattle, WA
+  - Portland, OR
+  - Minneapolis, MN
+  - Denver, CO
+  - Raleigh, NC
+  - Pittsburgh, PA
+  - Salt Lake City, UT
+  - Boise, ID
+  - Houston, TX
+  - Dallas, TX
+  - Austin, TX
+  - Boston, MA
+  - Charlotte, NC
+  - New York, NY
+  - Chicago, IL
+  - Orlando, FL
+  - Tampa, FL
+
+usajobs:
+  email: jeff.boerger@gmail.com
+  keywords:
+  - data engineer
+  - data analyst
+  days: 30
+
+search:
+  since: 2w
+  save_jds: jds
+  titles:
+  - data engineer
+  - analytics engineer
+  - etl
+  - data platform
+  - data infrastructure
+  - data warehouse
+  - bi engineer
+  - data analyst
+  - business intelligence
+  - bi analyst
+  - reporting analyst
+  - product analyst
+  - data scientist
+  - machine learning
+  - ml engineer
+  - applied scientist
+  - ai engineer
+  locations:
+  - Remote
+  - US
+  - United States
+  - WA
+  - OR
+  - CA
+  - MN
+  - CO
+  - NC
+  - PA
+  - UT
+  - ID
+  - TX
+  - MA
+  - NY
+  - IL
+  - FL
+  - GA
+  - VA
+  - AZ
+  - TN
+  - IA
+  exclude_titles:
+  - staff
+  - principal
+  - director
+  - manager
+  - sr. staff
+  - vp
+  exclude_locations:
+  - canada
+  - india
+  - poland
+  - spain
+  - mexico
+  - brazil
+  - colombia
+  - uk
+  - united kingdom
+  - ireland
+  - germany
+  - france
+  - netherlands
+  - europe
+  - emea
+  - apac
+  - australia
+  - singapore
+  - japan
+  - philippines
+  - malaysia

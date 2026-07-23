@@ -1,0 +1,252 @@
+# ===========================================================================
+# companies_other.yaml — ops / business-analyst lane across the SAME
+# 53 company endpoints as companies_data_roles.yaml.
+#
+#   python jobhunt.py --config companies_other.yaml --new-only
+#
+# WHY THIS IS A SEPARATE FILE (not merged into the data config):
+#   * 'manager' is DELIBERATELY NOT in exclude_titles here — Operations
+#     Manager is the single most defensible title in the resume bank (GM with
+#     real P&L). The data config excludes 'manager' so its report isn't
+#     flooded. Opposite rules, so: two files, two runs.
+#   * 'senior' / 'sr.' ARE excluded here (unlike the data config) — these ops
+#     lanes skew senior and the bank defends mid-level.
+#   * save_jds writes to jds_other/ so ops JDs don't pollute the DE/DA keyword
+#     corpus that feeds resume tailoring.
+#   * html: other.html so the daily jobs.html stays the data report.
+#
+# Title lanes below mirror companies_fallback.yaml (business/systems analyst,
+# healthcare ops, sales/rev ops, supply chain, pure ops) but run against the
+# full big-corporate watchlist instead of FL/TX-only sources.
+# ===========================================================================
+
+# --- startup/tech boards (Greenhouse/Lever/Ashby) -------------------------
+greenhouse:
+- gitlab
+- datadog
+- cloudflare
+- stripe
+- coinbase
+- doordashusa
+- instacart
+- reddit
+- pinterest
+- discord
+- figma
+- mongodb
+- elastic
+- twilio
+- affirm
+- gusto
+- toast
+- duolingo
+- asana
+- dbtlabsinc
+- anthropic
+- samsara
+- chime
+- squarespace
+- knowbe4
+- attentive
+- amperon
+lever:
+- palantir
+- zoox
+ashby:
+- openai
+- plaid
+- ramp
+- linear
+- replit
+- supabase
+
+# --- Workday tenants -----------------------------------------------------
+workday:
+- tenant: disney
+  host: disney.wd5.myworkdayjobs.com
+  site: 'disneycareer'
+- tenant: nvidia
+  host: nvidia.wd5.myworkdayjobs.com
+  site: 'NVIDIAExternalCareerSite'
+- tenant: citi
+  host: citi.wd5.myworkdayjobs.com
+  site: '2'
+- tenant: raymondjames
+  host: raymondjames.wd1.myworkdayjobs.com
+  site: 'RaymondJamesCareers'
+- tenant: jabil
+  host: jabil.wd5.myworkdayjobs.com
+  site: 'Jabil_Careers'
+- tenant: adventhealth
+  host: adventhealth.wd12.myworkdayjobs.com
+  site: 'AH_External_Career_Site'
+- tenant: cityoforlando
+  host: cityoforlando.wd5.myworkdayjobs.com
+  site: 'CityofOrlandoCareers'
+- tenant: reliaquest
+  host: reliaquest.wd5.myworkdayjobs.com
+  site: 'ReliaQuest_Careers'
+- tenant: shell
+  host: shell.wd3.myworkdayjobs.com
+  site: 'ShellCareers'
+- tenant: fil
+  host: fil.wd3.myworkdayjobs.com
+  site: '001'
+- tenant: fis
+  host: fis.wd5.myworkdayjobs.com
+  site: 'SearchJobs'
+
+# --- Eightfold tenants (PCSX-verified) -----------------------------------
+eightfold:
+- tenant: starbucks
+  domain: starbucks.com
+- tenant: johndeere
+  domain: johndeere.com
+- tenant: bms
+  domain: bms.com
+- tenant: micron
+  domain: micron.com
+
+# --- Radancy / TalentBrew tenants (confirmed) ----------------------------
+radancy:
+- tenant: lockheed
+  host: www.lockheedmartinjobs.com
+- tenant: schwab
+  host: www.schwabjobs.com
+- tenant: chevron
+  host: careers.chevron.com
+
+adzuna:
+  distance_km: 40
+  queries:
+  - business analyst
+  - systems analyst
+  - operations analyst
+  - implementation specialist
+  - inventory analyst
+  - supply chain analyst
+  - healthcare data analyst
+  - operations coordinator
+  wheres:
+  - Seattle, WA
+  - Portland, OR
+  - Minneapolis, MN
+  - Denver, CO
+  - Raleigh, NC
+  - Pittsburgh, PA
+  - Salt Lake City, UT
+  - Boise, ID
+  - Houston, TX
+  - Dallas, TX
+  - Austin, TX
+  - Boston, MA
+  - Charlotte, NC
+  - New York, NY
+  - Chicago, IL
+  - Orlando, FL
+  - Tampa, FL
+
+usajobs:
+  email: jeff.boerger@gmail.com
+  keywords:
+  - business analyst
+  - management analyst          # THE federal ops/BA title series (GS-0343)
+  - program analyst
+  - inventory management specialist
+  days: 30
+
+search:
+  since: 2w
+  save_jds: jds_other           # keep ops JDs out of the DE/DA corpus
+  html: other.html              # daily jobs.html stays the data report
+  titles:
+  # --- business / systems analyst lane
+  - business analyst
+  - business systems analyst
+  - systems analyst
+  - system analyst              # phrase match is exact per word: need both forms
+  - operations analyst
+  - implementation analyst
+  - implementation specialist
+  # --- healthcare ops/data lane
+  - clinical data analyst
+  - healthcare analyst
+  - health information
+  - ehr analyst
+  - informatics
+  # --- sales / revenue ops lane
+  - sales operations
+  - revenue operations
+  - sales analyst
+  - crm analyst
+  # --- inventory / supply chain lane
+  - inventory analyst
+  - inventory control
+  - supply chain analyst
+  - logistics analyst
+  # --- pure ops lane ('manager' un-excluded below so these can hit)
+  - operations manager
+  - operations coordinator
+  - operations supervisor
+  - franchise business consultant
+  # --- analytics-ops titles a data-title search never catches
+  - workforce management
+  - industrial engineer
+  - revenue management
+  - decision science
+  locations:
+  - Remote
+  - US
+  - United States
+  - WA
+  - OR
+  - CA
+  - MN
+  - CO
+  - NC
+  - PA
+  - UT
+  - ID
+  - TX
+  - MA
+  - NY
+  - IL
+  - FL
+  - GA
+  - VA
+  - AZ
+  - TN
+  - IA
+  exclude_titles:
+  # NOTE: 'manager' intentionally ABSENT — Operations Manager must hit.
+  - pharmacy
+  - pharmacist
+  - staff
+  - principal
+  - director
+  - sr. staff
+  - vp
+  - senior
+  - sr.
+  exclude_locations:
+  - canada
+  - india
+  - poland
+  - spain
+  - mexico
+  - brazil
+  - colombia
+  - uk
+  - united kingdom
+  - ireland
+  - germany
+  - france
+  - netherlands
+  - europe
+  - emea
+  - apac
+  - australia
+  - singapore
+  - japan
+  - philippines
+  - malaysia

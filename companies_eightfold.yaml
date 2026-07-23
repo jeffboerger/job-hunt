@@ -1,0 +1,156 @@
+# EIGHTFOLD-SOURCE config — exercises the first-class `eightfold:` block.
+# Eightfold powers the career sites of many large old-economy employers that
+# DON'T show up in Greenhouse/Lever/Ashby. This is the "big corporate, not big
+# tech" lane. All tenants below were verified with eightfold_probe.py.
+#
+#   python jobhunt.py --config companies_eightfold.yaml --new-only
+#
+# Adding a tenant later? Probe it first:
+#   python eightfold_probe.py <tenant> <domain>
+# Keep it only if it returns 200 with a `data.positions` array. If the probe
+# says PCSX works, no code change is needed — the handler already maps that
+# shape. If a tenant only serves SmartApply with different field names, paste
+# the probe's "FIRST POSTING KEYS" line before trusting it.
+
+eightfold:
+# --- VERIFIED working via eightfold_probe.py (PCSX pattern, July 2026) ------
+# All four return 200 with the standard PCSX shape the handler maps. Their
+# feeds are global, so exclude_locations (below) drops the non-US noise.
+- tenant: starbucks        # Seattle HQ — data eng, data architect, decision sci
+  domain: starbucks.com
+- tenant: johndeere        # Moline IL (Quad Cities) — analytics data eng, DA
+  domain: johndeere.com
+- tenant: bms              # Bristol-Myers Squibb — US remote data/AI roles seen
+  domain: bms.com
+- tenant: micron           # Boise ID — semiconductors, heavy data org
+  domain: micron.com
+
+# --- PROBED AND REMOVED (July 2026) — do not re-add without a fresh probe ---
+#   aexp     — 200 but 0 positions on domain=aexp.com; wants a different domain
+#              param. On Eightfold but not resolved. To fix: open
+#              aexp.eightfold.ai/careers, watch the network tab for the
+#              domain= value the page itself sends, put that in domain:.
+#   boeing   — no boeing.eightfold.ai subdomain (DNS fail). Different ATS.
+#   vmware   — no subdomain (Broadcom acquisition). Different ATS.
+#   nutanix  — 404. Not on Eightfold.
+#   chevron  — 404. Radancy portal (the other configs already flagged this) ->
+#              Adzuna covers it via city+radius; no connector needed.
+
+# ---------------------------------------------------------------------------
+# Titles/locations below reuse your DE/DA net for the mild-summer metros.
+# Adzuna + USAJobs here catch the custom-portal giants (Nike/Radancy/Phenom)
+# in those same metros that Eightfold doesn't cover.
+# ---------------------------------------------------------------------------
+
+adzuna:
+  # credentials live in .env only (ADZUNA_APP_ID / ADZUNA_APP_KEY)
+  distance_km: 40
+  queries:
+  - data engineer
+  - data analyst
+  wheres:
+  - Seattle, WA
+  - Portland, OR
+  - Minneapolis, MN
+  - Raleigh, NC
+  - Pittsburgh, PA
+  - Denver, CO
+  - Salt Lake City, UT
+  - Boise, ID
+
+usajobs:
+  email: jeff.boerger@gmail.com
+  keywords:
+  - data engineer
+  - data analyst
+  locations:
+  - Seattle, Washington
+  - Portland, Oregon
+  - Minneapolis, Minnesota
+  - Raleigh, North Carolina
+  - Denver, Colorado
+  days: 30
+
+search:
+  since: 2w
+  save_jds: jds
+  titles:
+  - data engineer
+  - analytics engineer
+  - etl
+  - data platform
+  - data infrastructure
+  - data warehouse
+  - bi engineer
+  - data analyst
+  - business intelligence
+  - bi analyst
+  - reporting analyst
+  - product analyst
+  # --- data science / ML lane (added for the AI/ML-engineer track). Base-level
+  #     roles surface; the seniority excludes below still drop principal/mgr.
+  - data scientist
+  - machine learning
+  - ml engineer
+  - applied scientist
+  - ai engineer
+  locations:
+  - Seattle
+  - Bellevue
+  - Redmond
+  - WA
+  - Portland
+  - Beaverton
+  - OR
+  - Minneapolis
+  - St. Paul
+  - MN
+  - Raleigh
+  - Durham
+  - NC
+  - Pittsburgh
+  - PA
+  - Denver
+  - CO
+  - Salt Lake City
+  - UT
+  - Boise
+  - ID
+  - Moline
+  - IL
+  # --- Starbucks' data org clusters here; delete these 6 lines for pure
+  #     mild-summer geo.
+  - Nashville
+  - TN
+  - Austin
+  - Dallas
+  - TX
+  - Remote
+  exclude_titles:
+  - staff
+  - principal
+  - director
+  - manager
+  - sr. staff
+  - vp
+  exclude_locations:
+  - canada
+  - india
+  - poland
+  - spain
+  - mexico
+  - brazil
+  - uk
+  - united kingdom
+  - ireland
+  - germany
+  - france
+  - netherlands
+  - europe
+  - emea
+  - apac
+  - australia
+  - singapore
+  - japan
+  - philippines
+  - hyderabad

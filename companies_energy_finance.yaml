@@ -1,0 +1,132 @@
+# ENERGY + FINANCE expansion — big oil & big banks.
+# Mix of confirmed-working and TO-VERIFY tenants. Workday tenant slugs are easy
+# to get wrong in the `site` field (the part after the tenant), which fails
+# SILENTLY (0 results) rather than erroring. So every TO-VERIFY entry must be
+# confirmed with --check-sources before you trust it:
+#   python jobhunt.py --config companies_energy_finance.yaml --check-sources
+# A tenant returning 0 across ALL titles = wrong site path (or no data roles).
+# Cross-check by opening {host}/{site} in a browser: it should load THAT
+# company's job search, not a 404 or a different company.
+
+# ---------------------------------------------------------------------------
+# RADANCY — confirmed working (parser validated, phrase-match fixed)
+# ---------------------------------------------------------------------------
+radancy:
+- tenant: chevron
+  host: careers.chevron.com          # CONFIRMED working
+- tenant: schwab
+  host: www.schwabjobs.com           # CONFIRMED working
+# TO-VERIFY: other energy/finance Radancy tenants — confirm host has /search-jobs
+#   (open {host}/search-jobs?k=data-analyst; should show data roles)
+# - tenant: marathon
+#   host: careers.marathonpetroleum.com    # GUESS — verify host + /search-jobs
+
+# ---------------------------------------------------------------------------
+# WORKDAY — mix of confirmed (from your other configs) + TO-VERIFY
+# ---------------------------------------------------------------------------
+workday:
+# --- confirmed, already used in your other configs ---
+- tenant: shell
+  host: shell.wd3.myworkdayjobs.com
+  site: ShellCareers
+- tenant: citi
+  host: citi.wd5.myworkdayjobs.com
+  site: '2'
+# --- CONFIRMED working via --check-sources (July 2026); kept intentionally ---
+# NAMING REALITY (verified — these are NOT Fidelity Investments Boston):
+#   fil.wd3 = Fidelity INTERNATIONAL (UK/Canada asset mgr). Many roles are
+#             non-US and get cut by exclude_locations — that's expected.
+#   fis.wd5 = Fidelity National Information Services (US fintech/payments,
+#             Jacksonville HQ). Real data employer; note Jax is off your
+#             relocation list, so treat as remote/other-metro coverage.
+#   Fidelity Investments (Boston) = custom portal, NOT here → Adzuna (Boston
+#             is in the adzuna geo).
+- tenant: fil
+  host: fil.wd3.myworkdayjobs.com
+  site: '001'                        # Fidelity International — CONFIRMED returns jobs
+- tenant: fis
+  host: fis.wd5.myworkdayjobs.com
+  site: SearchJobs                   # FIS (Fidelity Nat'l Info Svcs) — CONFIRMED
+# NOTE: ExxonMobil = custom portal, NOT a clean Workday tenant. Search only
+# surfaced staffing-agency reposts. Let Adzuna cover Exxon (add Houston + energy
+# metros to the adzuna block). Same likely true for JPMorgan (Oracle ATS per
+# your companies_open.yaml notes) and Fidelity Investments US (custom portal).
+
+# ---------------------------------------------------------------------------
+# ADZUNA — the reliable catch-all for custom-portal giants (Exxon, JPMorgan,
+# Fidelity Investments US) that have no clean native endpoint. Energy metros
+# added since oil majors cluster in Houston.
+# ---------------------------------------------------------------------------
+adzuna:
+  distance_km: 40
+  queries:
+  - data engineer
+  - data analyst
+  wheres:
+  - Houston, TX
+  - Dallas, TX
+  - Boston, MA
+  - Charlotte, NC
+  - New York, NY
+  - San Antonio, TX
+
+search:
+  since: 2w
+  save_jds: jds
+  titles:
+  - data engineer
+  - analytics engineer
+  - etl
+  - data platform
+  - data infrastructure
+  - data warehouse
+  - bi engineer
+  - data analyst
+  - business intelligence
+  - bi analyst
+  - reporting analyst
+  - product analyst
+  - data scientist
+  - machine learning
+  - ml engineer
+  - ai engineer
+  locations:
+  - Houston
+  - Dallas
+  - Austin
+  - San Antonio
+  - TX
+  - Boston
+  - MA
+  - Charlotte
+  - NC
+  - New York
+  - NY
+  - Remote
+  exclude_titles:
+  - staff
+  - principal
+  - director
+  - manager
+  - sr. staff
+  - vp
+  exclude_locations:
+  - canada
+  - india
+  - poland
+  - spain
+  - mexico
+  - brazil
+  - uk
+  - united kingdom
+  - ireland
+  - germany
+  - france
+  - netherlands
+  - europe
+  - emea
+  - apac
+  - australia
+  - singapore
+  - japan
+  - philippines

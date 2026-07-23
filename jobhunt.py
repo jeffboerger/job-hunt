@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import re
 import sqlite3
@@ -59,6 +60,16 @@ class Job:
     @property
     def uid(self) -> str:
         return f"{self.source}|{self.company}|{self.url}"
+
+    @property
+    def fingerprint(self) -> str:
+        """Hybrid identity. ATS sources give every req a stable unique URL,
+        so URL identity is exact there (two identical-title reqs stay distinct,
+        and a re-posted identical role later still counts as NEW). Aggregators
+        (adzuna, careercircle) churn URLs on repost, so for them identity falls
+        back to normalized company+title+location content."""
+        return _fingerprint(self.source, self.company, self.title,
+                            self.location, self.url)
 
 
 # --------------------------------------------------------------------------- #
@@ -152,6 +163,255 @@ def fetch_workday(entry: dict, search_text: str) -> list[Job]:
         offset += page
         if offset >= data.get("total", 0):
             break
+        time.sleep(0.6)  # be polite
+    return jobs
+
+
+def _eightfold_job(j: dict, tenant: str, base: str) -> Job:
+    """Map one Eightfold posting dict -> Job. Shared by both API patterns.
+    Field names confirmed against a live PCSX payload (Starbucks, 2026):
+    name / locations[] / positionUrl / postedTs|creationTs / workLocationOption.
+    SmartApply uses the same keys, sometimes with a `location` string too."""
+    # location: PCSX gives locations[] (list of strings); SmartApply may give a
+    # single `location` string. Prefer the standardized short form if present.
+    loc = ""
+    std = j.get("standardizedLocations")
+    if isinstance(std, list) and std:
+        loc = "; ".join(std) if len(std) <= 2 else std[0]
+    if not loc:
+        locs = j.get("locations")
+        if isinstance(locs, list) and locs:
+            first = locs[0]
+            loc = first if isinstance(first, str) else first.get("name", "")
+        elif isinstance(j.get("location"), str):
+            loc = j["location"]
+
+    # url: positionUrl is a RELATIVE path (/careers/job/<id>); make absolute.
+    rel = j.get("positionUrl") or j.get("canonicalPositionUrl") or ""
+    if rel.startswith("http"):
+        url = rel
+    elif rel:
+        url = f"{base}{rel}"
+    else:
+        url = f"{base}/careers/job/{j.get('id', '')}"
+
+    # posted: postedTs / creationTs are Unix seconds.
+    ts = j.get("postedTs") or j.get("creationTs") or j.get("t_create")
+    posted = ""
+    if ts:
+        try:
+            posted = datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d")
+        except (ValueError, OSError, TypeError):
+            posted = ""
+
+    # remote: prefer the explicit workLocationOption field over text-guessing.
+    wlo = (j.get("workLocationOption") or "").lower()
+    remote = wlo == "remote" or "remote" in loc.lower()
+
+    return Job(
+        source="eightfold", company=tenant,
+        title=j.get("name") or j.get("title", ""),
+        location=loc,
+        url=url,
+        posted=posted,
+        remote=remote,
+        raw=j,
+    )
+
+
+def fetch_eightfold(entry: dict, search_text: str) -> list[Job]:
+    """
+    Eightfold-powered career sites (Starbucks, John Deere, American Express,
+    Boeing, ...) are JS apps fed by a public, no-auth JSON endpoint — same idea
+    as the Workday handler.
+
+    entry = {tenant: 'starbucks', domain: 'starbucks.com'}   # domain optional
+              (subdomain is {tenant}.eightfold.ai)
+
+    Eightfold serves TWO patterns; a tenant uses one or the other:
+      * PCSX       : GET {base}/api/pcsx/search?domain={domain}&query=&start=N
+                     -> {"data": {"positions": [...], ...}, ...}   (nested)
+                     This is the common one (Starbucks confirmed). Postings live
+                     at data["data"]["positions"]; count at data["data"]["count"]
+                     or ["totalCount"] when present.
+      * SmartApply : GET {base}/api/apply/v2/jobs?domain={domain}&hl=en&start=N
+                     -> {"positions": [...], "totalJobs": int}     (flat)
+                     Some tenants 403 the PCSX path and serve this instead.
+
+    We try PCSX first (verified against a live tenant), fall back to SmartApply.
+    search_text is passed as the `query` filter; if a tenant ignores it we still
+    get postings and the downstream title/location filters narrow them, exactly
+    like every other source. Field mapping lives in _eightfold_job().
+    """
+    tenant = entry["tenant"]
+    domain = entry.get("domain", tenant)
+    base = f"https://{tenant}.eightfold.ai"
+    hdr = {**UA, "Accept": "application/json"}
+    jobs: list[Job] = []
+
+    # --- Pattern 1: PCSX (verified shape) --------------------------------- #
+    # Eightfold PCSX caps a page at 10 results even if you ask for more, and
+    # reports the true match count in data["count"]. A fuzzy query like
+    # "data engineer" can match ~25 postings; we page through all of them
+    # (capped) and let the caller's title/location filters do exact matching.
+    # NOTE: no sort_by param — some tenants 400 on it. Relevance is the default.
+    start, page = 0, 10
+    pcsx_ok = False
+    for _ in range(10):  # cap 100 postings per company per run
+        api = (f"{base}/api/pcsx/search?domain={quote(domain)}"
+               f"&query={quote(search_text or '')}&location=&start={start}"
+               f"&num={page}")
+        r = requests.get(api, headers=hdr, timeout=TIMEOUT)
+        if r.status_code == 429:
+            time.sleep(2.0)   # rate-limited: back off and retry this page once
+            r = requests.get(api, headers=hdr, timeout=TIMEOUT)
+        if r.status_code != 200:
+            break  # tenant likely serves SmartApply instead -> fall through
+        pcsx_ok = True  # PCSX answered 200; don't fall through to SmartApply
+        payload = r.json()
+        data = payload.get("data") or {}
+        positions = data.get("positions") or []
+        if not positions:
+            break  # no more pages
+        for j in positions:
+            jobs.append(_eightfold_job(j, tenant, base))
+        total = data.get("count") or data.get("totalCount") or 0
+        start += len(positions)   # advance by what we actually got, not page
+        if not total or start >= total:
+            break
+        time.sleep(0.6)  # be polite
+    # If PCSX answered (even with zero matches for this query), we're done —
+    # don't fall through to SmartApply and double-count / 404.
+    if pcsx_ok or jobs:
+        return jobs
+
+    # --- Pattern 2: SmartApply (fallback) --------------------------------- #
+    start, page = 0, 10
+    for _ in range(10):
+        api = (f"{base}/api/apply/v2/jobs?domain={quote(domain)}"
+               f"&query={quote(search_text or '')}&hl=en"
+               f"&start={start}&num={page}")
+        r = requests.get(api, headers=hdr, timeout=TIMEOUT)
+        if r.status_code != 200:
+            # Neither pattern worked. Raise so collect()'s grab() logs it
+            # (403 = blocked/bot-checked, 404 = tenant not on Eightfold).
+            r.raise_for_status()
+            break
+        data = r.json()
+        positions = data.get("positions") or data.get("jobs") or []
+        if not positions:
+            break
+        for j in positions:
+            jobs.append(_eightfold_job(j, tenant, base))
+        total = data.get("totalJobs") or data.get("count") or 0
+        start += page
+        if not total or start >= total:
+            break
+        time.sleep(0.6)
+    return jobs
+
+
+def _radancy_job(a, tenant: str, base: str) -> Job:
+    """Map one TalentBrew result anchor -> Job.
+    Confirmed markup (Lockheed, 2026): each result is an <a href="/job/..."> in
+    #search-results-list containing labeled spans:
+        <span class="job-title">   ...title...
+        <span class="job-location">...city, state...
+        <span class="job-date-posted">Date Posted: MM/DD/YYYY
+        <span class="job-id">Job ID: 734910BR
+    Title/location come from their spans (NOT the concatenated anchor text).
+    City is also in the href: /job/{city}/{slug}/{orgid}/{jobid}.
+    """
+    def span(cls):
+        el = a.select_one(f"span.{cls}")
+        return el.get_text(strip=True) if el else ""
+
+    title = span("job-title")
+    location = span("job-location")
+    date_raw = span("job-date-posted")   # "Date Posted: 07/14/2026"
+    posted = ""
+    if date_raw:
+        m = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", date_raw)
+        if m:
+            mm, dd, yyyy = m.groups()
+            posted = f"{yyyy}-{int(mm):02d}-{int(dd):02d}"
+
+    href = a.get("href", "")
+    url = href if href.startswith("http") else f"{base}{href}"
+
+    return Job(
+        source="radancy", company=tenant,
+        title=title,
+        location=location,
+        url=url,
+        posted=posted,
+        remote="remote" in location.lower(),
+        raw={"job_id": a.get("data-job-id", ""), "href": href},
+    )
+
+
+def fetch_radancy(entry: dict, search_text: str) -> list[Job]:
+    """
+    Radancy / TalentBrew career sites (Lockheed Martin, Chevron, Charles Schwab,
+    Universal, ...) server-render their job list as HTML — no JSON API, no XHR,
+    no session cookie needed. We fetch the search page and parse the results.
+
+    entry = {tenant: 'lockheed', host: 'www.lockheedmartinjobs.com'}
+
+    Endpoint: GET https://{host}/search-jobs?k={keyword}[&{PAGE_PARAM}=N]
+      * Keyword filtering uses ?k= (confirmed: ?k= filters, path/?keyword= don't).
+      * Real results live in <section id="search-results-list">, NOT the
+        <section class="job-list"> "Featured Jobs" block (which is the same ~6
+        recommended roles on every page — we ignore it).
+      * Each result anchor carries labeled spans; see _radancy_job().
+
+    Pagination: PAGE_PARAM is set from the confirmed value (radancy_pagination.py).
+    If a tenant doesn't paginate the same way, we still get page 1 (~15 roles),
+    and the caller runs many titles, so coverage stays good.
+    """
+    from bs4 import BeautifulSoup  # lazy import, matches fetch_careercircle
+
+    tenant = entry["tenant"]
+    host = entry["host"]
+    base = f"https://{host}"
+    hdr = {**UA, "Accept": "text/html,application/xhtml+xml"}
+    # TalentBrew's ?k= treats a "+"/"%20" space as an ANY-word match, which at a
+    # big employer returns ~everything (data OR engineer). Hyphenating the space
+    # forces a PHRASE match ("data-engineer" -> ~81 real hits vs ~2,300 broad).
+    # Confirmed via radancy_spacefix.py. quote() still escapes any other chars.
+    kw = quote((search_text or "").strip().replace(" ", "-"))
+    jobs: list[Job] = []
+    seen_ids: set[str] = set()
+
+    # PAGE_PARAM: confirmed via radancy_pagination.py. TalentBrew's classic
+    # param is 'p'. Adjust here if the probe showed a different one.
+    PAGE_PARAM = "p"
+
+    for page in range(1, 8):  # cap 7 pages (~105 roles) per keyword per tenant
+        sep = "&" if page > 1 else ""
+        url = f"{base}/search-jobs?k={kw}"
+        if page > 1:
+            url += f"&{PAGE_PARAM}={page}"
+        r = requests.get(url, headers=hdr, timeout=TIMEOUT)
+        r.raise_for_status()
+        soup = BeautifulSoup(r.text, "html.parser")
+        container = soup.select_one("#search-results-list")
+        if not container:
+            break
+        anchors = container.select('a[href^="/job/"]')
+        if not anchors:
+            break
+        new_this_page = 0
+        for a in anchors:
+            jid = a.get("data-job-id", "")
+            if jid and jid in seen_ids:
+                continue   # pagination looped back to page 1 content -> stop
+            if jid:
+                seen_ids.add(jid)
+            jobs.append(_radancy_job(a, tenant, base))
+            new_this_page += 1
+        if new_this_page == 0:
+            break  # no new roles -> we've exhausted real pages
         time.sleep(0.6)  # be polite
     return jobs
 
@@ -279,9 +539,17 @@ def title_excluded(title: str, exclude: list) -> bool:
     return any(_word_hit(x.lower(), t) for x in exclude or [])
 
 
+def _loc_hit(term: str, loc: str) -> bool:
+    """Whole-word location match. Plain substring made state abbreviations
+    toxic: 'FL' hit 'FLorence, KY', 'IL' hit 'WILmington' and 'BrazIL',
+    'IA' hit 'VirginIA'. Word boundaries keep 'FL' matching 'Orlando, FL'
+    (and multi-word terms like 'Lake Buena Vista') without the shrapnel."""
+    return re.search(rf"\b{re.escape(term)}\b", loc) is not None
+
+
 def location_excluded(loc: str, exclude: list) -> bool:
     l = loc.lower()
-    return any(x.lower() in l for x in exclude or [])
+    return any(_loc_hit(x.lower(), l) for x in exclude or [])
 
 
 def location_matches(loc: str, wanted: list[str], remote_flag: bool) -> bool:
@@ -294,7 +562,7 @@ def location_matches(loc: str, wanted: list[str], remote_flag: bool) -> bool:
             continue
         if w == "remote" and (remote_flag or "remote" in l):
             return True
-        if w in l:
+        if _loc_hit(w, l):
             return True
     return False
 
@@ -320,11 +588,40 @@ def is_boosted(title: str, boost_terms: list) -> bool:
 # --------------------------------------------------------------------------- #
 #  Seen-tracking (SQLite)
 # --------------------------------------------------------------------------- #
+# sources whose posting URLs are stable + unique per requisition
+STABLE_URL_SOURCES = {"greenhouse", "lever", "ashby", "workday",
+                      "eightfold", "radancy", "remotive", "usajobs"}
+FP_SCHEME = 2   # bump when fingerprint logic changes -> triggers DB re-backfill
+
+
+def _fingerprint(source: str, company: str, title: str,
+                 location: str, url: str) -> str:
+    if source in STABLE_URL_SOURCES and url:
+        key = f"{source}|{url}"
+    else:
+        key = re.sub(r"\s+", " ", f"{company}|{title}|{location}".lower()).strip()
+    return hashlib.md5(key.encode()).hexdigest()
+
+
 def db_connect():
     con = sqlite3.connect(DB_PATH)
     con.execute("""CREATE TABLE IF NOT EXISTS seen
                    (uid TEXT PRIMARY KEY, first_seen TEXT, title TEXT,
-                    company TEXT, location TEXT, url TEXT)""")
+                    company TEXT, location TEXT, url TEXT, fingerprint TEXT)""")
+    cols = [r[1] for r in con.execute("PRAGMA table_info(seen)")]
+    if "fingerprint" not in cols:
+        con.execute("ALTER TABLE seen ADD COLUMN fingerprint TEXT")
+    if con.execute("PRAGMA user_version").fetchone()[0] < FP_SCHEME:
+        # (re)backfill: uid is '{source}|{company}|{url}', so source is recoverable
+        rows = con.execute("SELECT uid, title, company, location, url FROM seen").fetchall()
+        for uid, title, company, location, url in rows:
+            source = uid.split("|", 1)[0]
+            con.execute("UPDATE seen SET fingerprint=? WHERE uid=?",
+                        (_fingerprint(source, company or "", title or "",
+                                      location or "", url or ""), uid))
+        con.execute(f"PRAGMA user_version={FP_SCHEME}")
+        con.commit()
+    con.execute("CREATE INDEX IF NOT EXISTS idx_seen_fp ON seen(fingerprint)")
     return con
 
 
@@ -333,11 +630,11 @@ def mark_and_flag_new(jobs: list[Job]) -> set[str]:
     new_uids = set()
     now = datetime.now().isoformat(timespec="seconds")
     for j in jobs:
-        cur = con.execute("SELECT 1 FROM seen WHERE uid=?", (j.uid,))
+        cur = con.execute("SELECT 1 FROM seen WHERE fingerprint=?", (j.fingerprint,))
         if cur.fetchone() is None:
             new_uids.add(j.uid)
-            con.execute("INSERT INTO seen VALUES (?,?,?,?,?,?)",
-                        (j.uid, now, j.title, j.company, j.location, j.url))
+        con.execute("INSERT OR IGNORE INTO seen VALUES (?,?,?,?,?,?,?)",
+                    (j.uid, now, j.title, j.company, j.location, j.url, j.fingerprint))
     con.commit()
     con.close()
     return new_uids
@@ -505,7 +802,6 @@ def fetch_careercircle(cfg: dict) -> list:
 #  JD saving — write descriptions of NEW matching postings to a folder,
 #  building a dated corpus of the current target market (feeds jd_harvest.py)
 # --------------------------------------------------------------------------- #
-import hashlib
 import html as _html
 
 
@@ -647,6 +943,14 @@ def collect(args, cfg) -> list[Job]:
         for entry in cfg.get("workday", []):
             for t in getattr(args, "title_list", [args.title]):
                 grab(f"workday/{entry['tenant']}:{t[:18]}", fetch_workday, entry, t)
+    if on("eightfold"):
+        for entry in cfg.get("eightfold", []):
+            for t in getattr(args, "title_list", [args.title]):
+                grab(f"eightfold/{entry['tenant']}:{t[:16]}", fetch_eightfold, entry, t)
+    if on("radancy"):
+        for entry in cfg.get("radancy", []):
+            for t in getattr(args, "title_list", [args.title]):
+                grab(f"radancy/{entry['tenant']}:{t[:16]}", fetch_radancy, entry, t)
     if on("remotive"):
         grab("remotive", fetch_remotive, args.title)
     if on("usajobs") and cfg.get("usajobs"):
@@ -788,13 +1092,14 @@ def main():
     p.add_argument("--locations", default="",
                    help='Comma list matched against posting location, e.g. "Orlando,Tampa,Lakeland,FL,Remote"')
     p.add_argument("--sources", default="",
-                   help="Comma list to limit sources: greenhouse,lever,ashby,workday,remotive,adzuna")
+                   help="Comma list to limit sources: greenhouse,lever,ashby,workday,eightfold,radancy,remotive,adzuna")
     p.add_argument("--adzuna-where", default="", help="City for Adzuna geo search (defaults to first --locations entry)")
     p.add_argument("--new-only", action="store_true", help="Only show jobs not seen in previous runs")
     p.add_argument("--since", default="", help="Only jobs posted within a window: 24h, 1d, 3d, 7d, 2w. Jobs with no date are kept (marked '??').")
     p.add_argument("--csv", default="", help="Also write results to this CSV file (url column included)")
-    p.add_argument("--html", default="jobs.html",
-                   help="Clickable HTML report path (written EVERY run; default jobs.html). Use --html '' to skip.")
+    p.add_argument("--html", default=None,
+                   help="Clickable HTML report path. Precedence: this flag > config "
+                        "search: html: > jobs.html. Use --html '' to skip.")
     p.add_argument("--config", default="", help="Path to a config YAML (default: companies.yaml). Keep several for different search profiles.")
     p.add_argument("--check-sources", action="store_true", help="Verify every configured slug responds, then exit")
     p.add_argument("--save-jds", default="",
@@ -816,6 +1121,9 @@ def main():
     args.title = titles[0]  # used as server-side searchText hint
     if not args.locations and search_cfg.get("locations"):
         args.locations = ",".join(search_cfg["locations"])
+    # config-driven default report name (CLI --html overrides; --html '' skips)
+    if args.html is None:
+        args.html = search_cfg.get("html", "jobs.html")
     # config-driven default posting-age window (CLI --since overrides;
     # --since all disables even the config default)
     if not args.since and search_cfg.get("since"):
@@ -860,7 +1168,7 @@ def main():
     # dedupe by (company,title,location)
     seen_keys, deduped = set(), []
     for j in filtered:
-        k = j.url or (j.company.lower(), j.title.lower(), j.location.lower())
+        k = j.fingerprint
         if k not in seen_keys:
             seen_keys.add(k)
             deduped.append(j)

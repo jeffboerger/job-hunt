@@ -72,6 +72,9 @@ adzuna:
   queries:
   - data engineer
   - data analyst
+  - qa engineer
+  - technical support engineer
+  - application support
   wheres:
   - Orlando, FL
   - Tampa, FL
@@ -106,6 +109,8 @@ careercircle:
   - data engineer
   - data analyst
   - business intelligence
+  - quality assurance
+  - technical support
   pages: 2
 search:
   since: 2w
@@ -129,6 +134,19 @@ search:
   - bi analyst
   - reporting analyst
   - product analyst
+  # new-grad bridge lanes: QA/SDET, customer-facing technical, app support
+  - sdet
+  - engineer in test
+  - qa engineer
+  - qa analyst
+  - quality assurance engineer
+  - quality assurance analyst
+  - software test
+  - technical support engineer
+  - solutions engineer
+  - solution engineer
+  - application analyst
+  - application support
   locations:
   - Orlando
   - Tampa

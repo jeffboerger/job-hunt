@@ -1,0 +1,117 @@
+# RADANCY / TalentBrew source config.
+# TalentBrew server-renders its job list as HTML (no JSON API), so this handler
+# fetches {host}/search-jobs?k={keyword} and parses <section id="search-results-
+# list">. Confirmed working against Lockheed. Other tenants below come from the
+# VERIFICATION RESULTS block in your other configs (all flagged "Radancy portal")
+# but their HOSTS still need confirming — see the probe note at the bottom.
+#
+#   python jobhunt.py --config companies_radancy.yaml --new-only
+#
+# entry shape:  {tenant: short_name, host: careers_hostname}
+# The host is the career-site domain (NOT radancy.com). Find it by opening the
+# company careers page and reading the address bar on the job-search view.
+
+radancy:
+# --- VERIFIED working (parser confirmed against live markup, July 2026) -----
+- tenant: lockheed
+  host: www.lockheedmartinjobs.com      # org id 694; 83 results for "data analyst"
+
+# --- LIKELY Radancy (flagged in your other configs) — CONFIRM HOST FIRST -----
+# Each of these was tagged "Radancy portal" in companies_open.yaml's notes.
+# Before trusting: open the careers site, confirm the URL has /search-jobs, and
+# check ?k=data%20analyst returns data roles in #search-results-list. If the
+# host is wrong the run just logs an error (harmless), but confirm to get data.
+- tenant: schwab
+  host: www.schwabjobs.com              # CONFIRM
+- tenant: chevron
+  host: careers.chevron.com             # CONFIRM — may be a different host
+- tenant: universal
+  host: www.universalorlandojobs.com    # CONFIRM /search-jobs works; Orlando-
+                                        # relevant. (jobs.universalparks.com 404s)
+
+# --- HOW TO ADD A NEW RADANCY TENANT ---------------------------------------
+# 1. Find the careers host (the domain on their /search-jobs page).
+# 2. Sanity-check in a browser: {host}/search-jobs?k=data%20analyst should show
+#    data roles. If it does, add {tenant, host} above.
+# 3. Run --check-sources; a non-zero count confirms it.
+# Radancy sites share the TalentBrew markup (span.job-title / .job-location /
+# #search-results-list), so no code changes are needed per tenant — just host.
+
+# ---------------------------------------------------------------------------
+# Titles/locations: same DE/DA/DS net as the eightfold config. Defense/finance/
+# parks employers post lots of non-data roles, so the title filter matters here.
+# Note: Lockheed is defense — many roles need US clearance; triage.py's HARD_NO
+# clearance screen already flags those, so they surface but get marked skip.
+# ---------------------------------------------------------------------------
+
+search:
+  since: 2w
+  save_jds: jds
+  titles:
+  - data engineer
+  - analytics engineer
+  - etl
+  - data platform
+  - data infrastructure
+  - data warehouse
+  - bi engineer
+  - data analyst
+  - business intelligence
+  - bi analyst
+  - reporting analyst
+  - product analyst
+  - data scientist
+  - machine learning
+  - ml engineer
+  - applied scientist
+  - ai engineer
+  locations:
+  - Seattle
+  - WA
+  - Portland
+  - OR
+  - Minneapolis
+  - MN
+  - Denver
+  - CO
+  - Raleigh
+  - NC
+  - Pittsburgh
+  - PA
+  - Salt Lake City
+  - UT
+  - Boise
+  - ID
+  - Fort Worth
+  - Dallas
+  - Austin
+  - TX
+  - Remote
+  - Multiple Locations
+  exclude_titles:
+  - staff
+  - principal
+  - director
+  - manager
+  - sr. staff
+  - vp
+  exclude_locations:
+  - canada
+  - india
+  - poland
+  - spain
+  - mexico
+  - brazil
+  - uk
+  - united kingdom
+  - ireland
+  - germany
+  - france
+  - netherlands
+  - europe
+  - emea
+  - apac
+  - australia
+  - singapore
+  - japan
+  - philippines

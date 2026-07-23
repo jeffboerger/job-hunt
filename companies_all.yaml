@@ -1,0 +1,226 @@
+# ===========================================================================
+# companies_all.yaml — THE combined daily driver.
+# Location-agnostic, every confirmed source + tenant, DE/DA/DS title net.
+# Merges: companies_open + companies_eightfold + companies_radancy +
+#         companies_energy_finance. One long run = "catch all the companies".
+#
+#   python jobhunt.py --config companies_all.yaml --new-only
+#
+# NOT merged here (on purpose): companies_fallback.yaml stays a SEPARATE run.
+# It un-excludes 'manager' to catch Operations Manager (your most defensible
+# title) and adds ops/BA titles — the OPPOSITE exclude rule from this tech
+# search. Merging them flat would either kill the ops lane or flood this
+# report with manager roles. Run fallback on its own when you want that lane:
+#   python jobhunt.py --config companies_fallback.yaml --new-only
+#
+# Adding tenants later: see probes/README.md for the verify-first recipe per
+# ATS family (eightfold / radancy / workday).
+# ===========================================================================
+
+# --- startup/tech boards (Greenhouse/Lever/Ashby) -------------------------
+greenhouse:
+- gitlab
+- datadog
+- cloudflare
+- stripe
+- coinbase
+- doordashusa
+- instacart
+- reddit
+- pinterest
+- discord
+- figma
+- mongodb
+- elastic
+- twilio
+- affirm
+- gusto
+- toast
+- duolingo
+- asana
+- dbtlabsinc
+- anthropic
+- samsara
+- chime
+- squarespace
+- knowbe4
+- attentive
+- amperon
+lever:
+- palantir
+- zoox
+ashby:
+- openai
+- plaid
+- ramp
+- linear
+- replit
+- supabase
+
+# --- Workday tenants (Disney, NVIDIA, banks, energy, healthcare) ----------
+workday:
+- tenant: disney
+  host: disney.wd5.myworkdayjobs.com
+  site: 'disneycareer'
+- tenant: nvidia
+  host: nvidia.wd5.myworkdayjobs.com
+  site: 'NVIDIAExternalCareerSite'
+- tenant: citi
+  host: citi.wd5.myworkdayjobs.com
+  site: '2'
+- tenant: raymondjames
+  host: raymondjames.wd1.myworkdayjobs.com
+  site: 'RaymondJamesCareers'
+- tenant: jabil
+  host: jabil.wd5.myworkdayjobs.com
+  site: 'Jabil_Careers'
+- tenant: adventhealth
+  host: adventhealth.wd12.myworkdayjobs.com
+  site: 'AH_External_Career_Site'
+- tenant: cityoforlando
+  host: cityoforlando.wd5.myworkdayjobs.com
+  site: 'CityofOrlandoCareers'
+- tenant: reliaquest
+  host: reliaquest.wd5.myworkdayjobs.com
+  site: 'ReliaQuest_Careers'
+- tenant: shell
+  host: shell.wd3.myworkdayjobs.com
+  site: 'ShellCareers'
+- tenant: fil
+  host: fil.wd3.myworkdayjobs.com
+  site: '001'
+- tenant: fis
+  host: fis.wd5.myworkdayjobs.com
+  site: 'SearchJobs'
+
+# --- Eightfold tenants (all PCSX-verified) --------------------------------
+eightfold:
+- tenant: starbucks
+  domain: starbucks.com
+- tenant: johndeere
+  domain: johndeere.com
+- tenant: bms
+  domain: bms.com
+- tenant: micron
+  domain: micron.com
+
+# --- Radancy / TalentBrew tenants (all confirmed) ------------------------
+radancy:
+- tenant: lockheed
+  host: www.lockheedmartinjobs.com
+- tenant: schwab
+  host: www.schwabjobs.com
+- tenant: chevron
+  host: careers.chevron.com
+
+# --- Adzuna: aggregator catch-all for custom-portal giants (Exxon, JPMorgan,
+#     Fidelity Investments) with no native endpoint. Broad metro list. --------
+adzuna:
+  distance_km: 40
+  queries:
+  - data engineer
+  - data analyst
+  wheres:
+  - Seattle, WA
+  - Portland, OR
+  - Minneapolis, MN
+  - Denver, CO
+  - Raleigh, NC
+  - Pittsburgh, PA
+  - Salt Lake City, UT
+  - Boise, ID
+  - Houston, TX
+  - Dallas, TX
+  - Austin, TX
+  - Boston, MA
+  - Charlotte, NC
+  - New York, NY
+  - Chicago, IL
+  - Orlando, FL
+  - Tampa, FL
+
+usajobs:
+  email: jeff.boerger@gmail.com
+  keywords:
+  - data engineer
+  - data analyst
+  days: 30
+
+remotive: true
+
+search:
+  since: 2w
+  save_jds: jds
+  titles:
+  - data engineer
+  - analytics engineer
+  - etl
+  - data platform
+  - data infrastructure
+  - data warehouse
+  - bi engineer
+  - data analyst
+  - business intelligence
+  - bi analyst
+  - reporting analyst
+  - product analyst
+  - data scientist
+  - machine learning
+  - ml engineer
+  - applied scientist
+  - ai engineer
+  # location-agnostic: no location filter cuts by geo. Keep Remote + broad
+  # state coverage so nothing US gets dropped; exclude_locations handles non-US.
+  locations:
+  - Remote
+  - US
+  - United States
+  - WA
+  - OR
+  - CA
+  - MN
+  - CO
+  - NC
+  - PA
+  - UT
+  - ID
+  - TX
+  - MA
+  - NY
+  - IL
+  - FL
+  - GA
+  - VA
+  - AZ
+  - TN
+  - IA
+  - IL
+  exclude_titles:
+  - staff
+  - principal
+  - director
+  - manager
+  - sr. staff
+  - vp
+  exclude_locations:
+  - canada
+  - india
+  - poland
+  - spain
+  - mexico
+  - brazil
+  - colombia
+  - uk
+  - united kingdom
+  - ireland
+  - germany
+  - france
+  - netherlands
+  - europe
+  - emea
+  - apac
+  - australia
+  - singapore
+  - japan
+  - philippines
+  - malaysia

@@ -1,4 +1,7 @@
-# Watchlist + search config. Slug help: README §5. Verify with --check-sources.
+# OPEN-GEOGRAPHY variant — same titles as the daily run, wider map
+# (adds NC / WA / PA / TN / IL / IA metros). Run occasionally:
+#   python jobhunt.py --config companies_open.yaml --new-only
+# Slug help: README §5. Verify with --check-sources.
 
 greenhouse:
 - gitlab
@@ -6,7 +9,7 @@ greenhouse:
 - cloudflare
 - stripe
 - coinbase
-- doordash
+- doordashusa
 - instacart
 - reddit
 - pinterest
@@ -14,28 +17,26 @@ greenhouse:
 - figma
 - mongodb
 - elastic
-- hashicorp
 - twilio
 - affirm
 - gusto
 - toast
-- wayfair
 - duolingo
 - asana
-- dbtlabs
+- dbtlabsinc
 - anthropic
 - samsara
 - chime
 - squarespace
 - knowbe4
+- attentive
+- amperon
 lever:
 - palantir
-- plaid
 - zoox
-- attentive
-- voltron-data
 ashby:
 - openai
+- plaid
 - ramp
 - linear
 - replit
@@ -62,12 +63,64 @@ workday:
 - tenant: cityoforlando
   host: cityoforlando.wd5.myworkdayjobs.com
   site: CityofOrlandoCareers
+- tenant: reliaquest
+  host: reliaquest.wd5.myworkdayjobs.com
+  site: ReliaQuest_Careers
+- tenant: shell
+  host: shell.wd3.myworkdayjobs.com
+  site: ShellCareers
+adzuna:
+  # credentials live in .env only (ADZUNA_APP_ID / ADZUNA_APP_KEY)
+  distance_km: 40
+  queries:
+  - data engineer
+  - data analyst
+  wheres:
+  - Orlando, FL
+  - Tampa, FL
+  - Lakeland, FL
+  - Houston, TX
+  - Austin, TX
+  - Dallas, TX
+  - Raleigh, NC
+  - Nashville, TN
+  - Memphis, TN
+  - Seattle, WA
+  - Chicago, IL
+  - Pittsburgh, PA
+usajobs:
+  email: jeff.boerger@gmail.com        # User-Agent per their API rules
+  # api key comes from USAJOBS_API_KEY in .env (free: developer.usajobs.gov)
+  # NEVER paste keys here: a placeholder string beats the .env value (truthy)
+  keywords:
+  - data engineer
+  - data analyst
+  locations:
+  - Orlando, Florida
+  - Tampa, Florida
+  - Lakeland, Florida
+  - Houston, Texas
+  - Austin, Texas
+  - Dallas, Texas
+  - Raleigh, North Carolina
+  - Nashville, Tennessee
+  - Memphis, Tennessee
+  - Seattle, Washington
+  - Chicago, Illinois
+  - Pittsburgh, Pennsylvania
+  days: 30
 careercircle:
   locations:
   - state~FL~Florida State~27.543598~-81.82069
   - MetroArea~Greater Orlando~Greater Orlando~28.538336~-81.379234
   - MetroArea~Greater Tampa Bay Area~Greater Tampa Bay Area~27.950575~-82.457176
   - city~Lakeland~Lakeland, FL~28.037963~-81.943908~33801
+  - city~Austin~Austin, TX~30.271567~-97.741886~78681
+  - city~Houston~Houston, TX~29.760427~-95.369803~77002
+  - city~Dallas~Dallas, TX~32.776664~-96.796988~75201
+  # new metros (Raleigh/Nashville/Seattle/Chicago/Pittsburgh) need location
+  # strings captured from careercircle.com's own filters — don't hand-build
+  # the lat/lng/zip format, copy it from the site's network requests
   keywords:
   - data engineer
   - data analyst
@@ -80,6 +133,12 @@ search:
   - data engineer
   - analytics engineer
   - etl
+  # federal title conventions (USAJobs posts data roles under these)
+  - it specialist
+  - data scientist
+  - statistician
+  - operations research analyst
+  - data management
   - data platform
   - data infrastructure
   - data warehouse
@@ -95,23 +154,26 @@ search:
   - Lakeland
   - Lake Buena Vista
   - FL
-  - Remote
   - Houston
+  - Austin
+  - Dallas
   - TX
+  - Remote
+  # open-geography extras
   - NC
-  - WA
-  - Seattle
   - Durham
   - Raleigh
-  - Pittsburgh
+  - WA
+  - Seattle
   - PA
+  - Pittsburgh
   - TN
   - Nashville
   - Memphis
+  - IL
   - Chicago
   - Peoria
   - Rockford
-  - IL 
   - IA
   exclude_titles:
   - staff
@@ -145,33 +207,21 @@ search:
   - malaysia
 
 # ---------------------------------------------------------------------------
-# TO VERIFY — Central Florida targets whose ATS I couldn't confirm.
-# For each: open the careers page, click one posting, read the URL,
-# then move it up into the right block (greenhouse/lever/ashby/workday).
-#
-# TAMPA BAY:
-#   FIS              — fisglobal.com/careers          (fintech hub, St. Pete)
-#   ReliaQuest       — reliaquest.com/careers         (Tampa HQ, cybersecurity)
-#   JPMorgan Chase   — careers.jpmorgan.com           (big Tampa tech ops; Oracle ATS)
-#   DTCC             — careers.dtcc.com               (Tampa)
-#   Moffitt          — moffitt.org/careers            (cancer center, data-heavy)
-#   BayCare          — baycare.org/careers
-#   Tampa General    — careers.tgh.org
-#   Bloomin' Brands  — bloominbrands.com/careers      (Outback parent, Tampa HQ)
-#   Mosaic           — mosaicco.com/careers
-#
-# ORLANDO:
-#   Universal Orlando— jobs.universalparks.com        (NBCU/Comcast family)
-#   Orlando Health   — jobs.orlandohealth.com
-#   Darden           — darden.com/careers             (Orlando HQ — Olive Garden etc.)
-#   Lockheed Martin  — lockheedmartinjobs.com         (big Orlando sims/training org)
-#   Siemens Energy   — siemens-energy.com/careers     (Orlando)
-#   Marriott Vacations— careers.marriottvacationsworldwide.com (Orlando HQ)
-#
-# LAKELAND / POLK:
-#   Publix           — jobs.publix.com                (Lakeland HQ — NOT on Workday,
-#                                                      custom portal; check manually
-#                                                      or use js_board.py)
-#   Saddle Creek Logistics — saddlecrk.com/careers    (Lakeland HQ)
-#   GEICO Lakeland   — geico.com/careers              (regional office)
+# VERIFICATION RESULTS (July 2026) — custom-portal employers are covered by
+# the Adzuna source; no additional connectors needed:
+#   Darden          — Paradox AI portal      → Adzuna covers
+#   Lockheed Martin — Radancy portal         → Adzuna covers
+#   Chevron         — Radancy portal         → Adzuna covers
+#   Schwab          — Radancy portal         → Adzuna covers
+#   Fidelity        — custom portal          → Adzuna covers
+#   Siemens Energy  — Avature portal         → Adzuna covers
+#   Universal       — Radancy portal         → Adzuna covers
+#   Orlando Health  — Phenom portal          → Adzuna covers
+#   JPMorgan        — Oracle ATS             → Adzuna covers; apply manually
+#   FIS             — Phenom frontend, likely Workday behind it: click Apply
+#                     on any posting; if it lands on *.myworkdayjobs.com,
+#                     grab tenant/host/site and add to the workday block
+#   Enverus         — JS-loaded listings: enverus.com/careers/ -> click a
+#                     posting -> paste URL to identify (Austin energy data,
+#                     worth the click)
 # ---------------------------------------------------------------------------

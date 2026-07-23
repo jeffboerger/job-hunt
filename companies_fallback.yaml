@@ -1,0 +1,146 @@
+# FALLBACK LANES — ops / business analyst / healthcare / supply chain roles
+# that the resume bank fully defends, for income while the tech search runs.
+# FL metros + Houston/Austin (no-move options while still in TX). Run occasionally:
+#   python jobhunt.py --config companies_fallback.yaml --new-only
+# Writes fallback.html (search: html: below) — daily jobs.html untouched.
+#
+# Deliberate differences from the daily config:
+#   * 'manager' REMOVED from exclude_titles — Operations Manager is the
+#     single most defensible title in the bank (GM with real P&L).
+#   * No greenhouse/lever/ashby watchlist — remote-first tech companies
+#     don't post Orlando ops coordinators. These lanes live on Adzuna,
+#     CareerCircle, USAJobs, and a handful of Workday tenants.
+#   * save_jds goes to jds_fallback/ so ops JDs don't pollute the
+#     DE/DA keyword corpus that feeds resume tailoring.
+
+workday:
+- tenant: disney
+  host: disney.wd5.myworkdayjobs.com
+  site: disneycareer
+- tenant: adventhealth
+  host: adventhealth.wd12.myworkdayjobs.com
+  site: AH_External_Career_Site
+- tenant: cityoforlando
+  host: cityoforlando.wd5.myworkdayjobs.com
+  site: CityofOrlandoCareers
+- tenant: jabil
+  host: jabil.wd5.myworkdayjobs.com
+  site: Jabil_Careers
+- tenant: raymondjames
+  host: raymondjames.wd1.myworkdayjobs.com
+  site: RaymondJamesCareers
+
+adzuna:
+  # credentials live in .env only (ADZUNA_APP_ID / ADZUNA_APP_KEY)
+  distance_km: 40
+  max_days_old: 21
+  queries:
+  - business analyst
+  - systems analyst
+  - operations analyst
+  - implementation specialist
+  - inventory analyst
+  - supply chain analyst
+  - healthcare data analyst
+  - operations coordinator
+  wheres:
+  - Orlando, FL
+  - Tampa, FL
+  - Lakeland, FL
+  - Houston, TX
+  - Austin, TX
+
+usajobs:
+  email: jeff.boerger@gmail.com        # User-Agent per their API rules
+  # api key comes from USAJOBS_API_KEY in .env (free: developer.usajobs.gov)
+  # NEVER paste keys here: a placeholder string beats the .env value (truthy)
+  keywords:
+  - business analyst
+  - management analyst          # THE federal ops/BA title series (GS-0343)
+  - program analyst
+  - inventory management specialist
+  locations:
+  - Orlando, Florida
+  - Tampa, Florida
+  - Lakeland, Florida
+  - Houston, Texas
+  - Austin, Texas
+  days: 30
+
+careercircle:
+  locations:
+  - state~FL~Florida State~27.543598~-81.82069
+  - MetroArea~Greater Orlando~Greater Orlando~28.538336~-81.379234
+  - MetroArea~Greater Tampa Bay Area~Greater Tampa Bay Area~27.950575~-82.457176
+  - city~Lakeland~Lakeland, FL~28.037963~-81.943908~33801
+  - city~Austin~Austin, TX~30.271567~-97.741886~78681
+  - city~Houston~Houston, TX~29.760427~-95.369803~77002
+  keywords:
+  - business analyst
+  - systems analyst
+  - operations
+  - supply chain
+  pages: 2
+
+search:
+  since: 2w
+  save_jds: jds_fallback
+  html: fallback.html
+  titles:
+  # --- business / systems analyst lane (AdventHealth BA + TECO resumes prove it)
+  - business analyst
+  - business systems analyst
+  - systems analyst
+  - system analyst              # phrase match is exact per word: need both forms
+  - operations analyst
+  - implementation analyst
+  - implementation specialist
+  # --- healthcare ops/data lane (3+ yrs EHR admin, HIPAA, billing)
+  - clinical data analyst
+  - healthcare analyst
+  - health information
+  - ehr analyst
+  - informatics
+  # --- sales / revenue ops lane (300% growth story, CRM migration, commissions)
+  - sales operations
+  - revenue operations
+  - sales analyst
+  - crm analyst
+  # --- inventory / supply chain lane (Publix + Boeing apps, CAT parts clerk)
+  - inventory analyst
+  - inventory control
+  - supply chain analyst
+  - logistics analyst
+  # --- pure ops lane (GM with P&L; 'manager' un-excluded so these can hit)
+  - operations manager
+  - operations coordinator
+  - operations supervisor
+  - franchise business consultant
+  # --- Disney parks analytics-ops titles a data-title search never catches
+  - workforce management
+  - industrial engineer
+  - revenue management
+  - decision science
+  locations:
+  - Orlando
+  - Tampa
+  - Lakeland
+  - Lake Buena Vista
+  - Celebration
+  - Kissimmee
+  - Brandon
+  - St. Petersburg
+  - FL
+  - Houston
+  - Austin
+  - TX
+  exclude_titles:
+  - pharmacy
+  - pharmacist
+  - staff
+  - principal
+  - director
+  - sr. staff
+  - vp
+  - senior
+  - sr.
